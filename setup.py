@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 from glob import glob
 
 # Make data go into site-packages (http://tinyurl.com/site-pkg)
@@ -22,4 +22,5 @@ setup(name='docx',
           ('docx-template/word', glob('template/word/*.xml')),
           ('docx-template/word/theme', glob('template/word/theme/*.*')),
           ],
+      zip_safe=False,
       )
