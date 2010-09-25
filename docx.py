@@ -251,12 +251,13 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     media_dir = join(template_dir,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
-    shutil.copyfile(picname, join(media_dir,picname))
+    picpath, picname = os.path.abspath(picname), os.path.basename(picname)
+    shutil.copyfile(picpath, join(media_dir,picname))
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
         # If not, get info from the picture itself
-        pixelwidth,pixelheight = Image.open(picname).size[0:2]
+        pixelwidth,pixelheight = Image.open(picpath).size[0:2]
 
     # OpenXML measures on-screen objects in English Metric Units
     # 1cm = 36000 EMUs            
