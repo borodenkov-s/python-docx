@@ -754,7 +754,6 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
                      websettings:'word/webSettings.xml',
                      wordrelationships:'word/_rels/document.xml.rels'}
     for tree in treesandfiles:
-        print 'Saving: '+treesandfiles[tree]    
         treestring = etree.tostring(tree, pretty_print=True)
         docxfile.writestr(treesandfiles[tree],treestring)
     
@@ -766,9 +765,7 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
                 continue
             templatefile = join(dirpath,filename)
             archivename = templatefile[2:]
-            print 'Saving: '+archivename          
             docxfile.write(templatefile, archivename)
-    print 'Saved new file to: '+docxfilename
     os.chdir(prev_dir) # restore previous working dir
     return
     
