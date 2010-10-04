@@ -18,9 +18,7 @@ from os.path import join
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
-template_dir = join(os.path.dirname(__file__),'docx-template') # installed
-if not os.path.isdir(template_dir):
-    template_dir = join(os.path.dirname(__file__),'template') # dev
+TEMPLATE_DIR = join(os.path.dirname(__file__),'docx-template') # installed
 
 # All Word prefixes / namespace matches used in document.xml & core.xml.
 # LXML doesn't actually use prefixes (just the real namespace) , but these
@@ -366,7 +364,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''  
     # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
+    media_dir = join(TEMPLATE_DIR,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
     shutil.copyfile(picname, join(media_dir,picname))
@@ -739,12 +737,12 @@ def wordrelationships(relationshiplist):
 
 def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,docxfilename):
     '''Save a modified document'''
-    assert os.path.isdir(template_dir)
+    assert os.path.isdir(TEMPLATE_DIR)
     docxfile = zipfile.ZipFile(docxfilename,mode='w',compression=zipfile.ZIP_DEFLATED)
     
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
-    os.chdir(template_dir)
+    os.chdir(TEMPLATE_DIR)
     
     # Serialize our trees into out zip file
     treesandfiles = {document:'word/document.xml',
