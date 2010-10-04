@@ -27,7 +27,7 @@ TEMPLATE_DIR = join(os.path.dirname(__file__),'docx-template') # installed
 # All Word prefixes / namespace matches used in document.xml & core.xml.
 # LXML doesn't actually use prefixes (just the real namespace) , but these
 # make it easier to copy Word output more easily. 
-nsprefixes = {
+NSPREFIXES = {
     # Text Content
     'mv':'urn:schemas-microsoft-com:mac:vml',
     'mo':'http://schemas.microsoft.com/office/mac/office/2008/main',
@@ -75,10 +75,10 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
     if type(nsprefix) == list:
         namespacemap = {}
         for prefix in nsprefix:
-            namespacemap[prefix] = nsprefixes[prefix]
+            namespacemap[prefix] = NSPREFIXES[prefix]
         nsprefix = nsprefix[0] # FIXME: rest of code below expects a single prefix
     if nsprefix:
-        namespace = '{'+nsprefixes[nsprefix]+'}'
+        namespace = '{'+NSPREFIXES[nsprefix]+'}'
     else:
         # For when namespace = None
         namespace = ''
@@ -94,7 +94,7 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
             else:
                 attributenamespace = ''
         else:
-            attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
+            attributenamespace = '{'+NSPREFIXES[attrnsprefix]+'}'
                     
         for tagattribute in attributes:
             newelement.set(attributenamespace+tagattribute, attributes[tagattribute])
@@ -464,7 +464,7 @@ def search(document,search):
     result = False
     searchre = re.compile(search)
     for element in document.iter():
-        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+        if element.tag == '{%s}t' % NSPREFIXES['w']: # t (text) elements
             if element.text:
                 if searchre.search(element.text):
                     result = True
@@ -475,7 +475,7 @@ def replace(document,search,replace):
     newdocument = document
     searchre = re.compile(search)
     for element in newdocument.iter():
-        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+        if element.tag == '{%s}t' % NSPREFIXES['w']: # t (text) elements
             if element.text:
                 if searchre.search(element.text):
                     element.text = re.sub(search,replace,element.text)
@@ -492,7 +492,7 @@ def clean(document):
     for t in ('t', 'r'):
         rmlist = []
         for element in newdocument.iter():
-            if element.tag == '{%s}%s' % (nsprefixes['w'], t):
+            if element.tag == '{%s}%s' % (NSPREFIXES['w'], t):
                 if not element.text and not len(element):
                     rmlist.append(element)
         for element in rmlist:
@@ -551,7 +551,7 @@ def advReplace(document,search,replace,bs=3):
     searchels = []
     
     for element in newdocument.iter():
-        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+        if element.tag == '{%s}t' % NSPREFIXES['w']: # t (text) elements
             if element.text:
                 # Add this element to searchels
                 searchels.append(element)
@@ -635,7 +635,7 @@ def getdocumenttext(document):
     paralist = []
     for element in document.iter():
         # Find p (paragraph) elements
-        if element.tag == '{'+nsprefixes['w']+'}p':
+        if element.tag == '{'+NSPREFIXES['w']+'}p':
             paralist.append(element)    
     # Since a single sentence might be spread over multiple text elements, iterate through each 
     # paragraph, appending all text (t) children to that paragraphs text.     
@@ -644,7 +644,7 @@ def getdocumenttext(document):
         # Loop through each paragraph
         for element in para.iter():
             # Find t (text) elements
-            if element.tag == '{'+nsprefixes['w']+'}t':
+            if element.tag == '{'+NSPREFIXES['w']+'}t':
                 if element.text:
                     paratext = paratext+element.text
         # Add our completed paragraph text to the list of paragraph text    
