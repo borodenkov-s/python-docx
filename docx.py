@@ -8,7 +8,11 @@ See LICENSE for licensing information.
 '''
 
 from lxml import etree
-import Image
+try:
+    from PIL import Image
+except ImportError:
+    # BBB for broken PIL installations
+    import Image
 import zipfile
 import shutil
 import re
