@@ -16,13 +16,12 @@ except ImportError:
 import zipfile
 import shutil
 import re
-import time
 import os
 from os.path import join
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
-TEMPLATE_DIR = join(os.path.dirname(__file__),'docx-template') # installed
+TEMPLATE_DIR = join(os.path.dirname(__file__),'template') # installed
 
 # All Word prefixes / namespace matches used in document.xml & core.xml.
 # LXML doesn't actually use prefixes (just the real namespace) , but these
@@ -651,57 +650,6 @@ def getdocumenttext(document):
         if not len(paratext) == 0:
             paratextlist.append(paratext)                    
     return paratextlist        
-
-def coreproperties(title,subject,creator,keywords,lastmodifiedby=None):
-    '''Create core properties (common document properties referred to in the 'Dublin Core' specification).
-    See appproperties() for other stuff.'''
-    coreprops = makeelement('coreProperties',nsprefix='cp')    
-    coreprops.append(makeelement('title',tagtext=title,nsprefix='dc'))
-    coreprops.append(makeelement('subject',tagtext=subject,nsprefix='dc'))
-    coreprops.append(makeelement('creator',tagtext=creator,nsprefix='dc'))
-    coreprops.append(makeelement('keywords',tagtext=','.join(keywords),nsprefix='cp'))    
-    if not lastmodifiedby:
-        lastmodifiedby = creator
-    coreprops.append(makeelement('lastModifiedBy',tagtext=lastmodifiedby,nsprefix='cp'))
-    coreprops.append(makeelement('revision',tagtext='1',nsprefix='cp'))
-    coreprops.append(makeelement('category',tagtext='Examples',nsprefix='cp'))
-    coreprops.append(makeelement('description',tagtext='Examples',nsprefix='dc'))
-    currenttime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
-    # Document creation and modify times
-    # Prob here: we have an attribute who name uses one namespace, and that 
-    # attribute's value uses another namespace.
-    # We're creating the lement from a string as a workaround...
-    for doctime in ['created','modified']:
-        coreprops.append(etree.fromstring('''<dcterms:'''+doctime+''' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">'''+currenttime+'''</dcterms:'''+doctime+'''>'''))
-        pass
-    return coreprops
-
-def appproperties():
-    '''Create app-specific properties. See docproperties() for more common document properties.'''    
-    appprops = makeelement('Properties',nsprefix='ep')
-    appprops = etree.fromstring(
-    '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
-    props = {
-            'Template':'Normal.dotm',
-            'TotalTime':'6',
-            'Pages':'1',  
-            'Words':'83',   
-            'Characters':'475', 
-            'Application':'Microsoft Word 12.0.0',
-            'DocSecurity':'0',
-            'Lines':'12', 
-            'Paragraphs':'8',
-            'ScaleCrop':'false', 
-            'LinksUpToDate':'false', 
-            'CharactersWithSpaces':'583',  
-            'SharedDoc':'false',
-            'HyperlinksChanged':'false',
-            'AppVersion':'12.0000',    
-            }
-    for prop in props:
-        appprops.append(makeelement(prop,tagtext=props[prop],nsprefix=None))
-    return appprops
 
 
 def websettings():
