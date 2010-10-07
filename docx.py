@@ -25,8 +25,10 @@ if not os.path.isdir(TEMPLATE_DIR):
 # temporary directory will create per module import.
 template_dir = TEMPLATE_DIR
 def set_template(template_path):
+    #print 'template loading "%s"' % template_path
     global template_dir
     template_dir = template_path
+    stylenames = {}  # reset style names
     update_stylenames(join(template_dir, 'word', 'styles.xml'))
 
 # END of QUICK-HACK
@@ -108,7 +110,7 @@ def update_stylenames(style_file):
             name = name_elem.attrib[norm_name('w:val', nsprefixes)]
         value = style_elem.attrib[norm_name('w:styleId', nsprefixes)]
         stylenames[name] = value
-        print "### '%s' = '%s'" % (name, value)
+        #print "### '%s' = '%s'" % (name, value)
 
 
 import tempfile
