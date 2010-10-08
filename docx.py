@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.6
+# -*- coding: utf-8 -*-
 '''
 Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
 
@@ -193,28 +194,69 @@ def pagebreak(type='page', orient='portrait'):
         pagebreak.append(pPr)
     return pagebreak    
 
-def paragraph(paratext,style='BodyText',breakbefore=False):
+def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
     '''Make a new paragraph element, containing a run, and some text. 
-    Return the paragraph element.'''
+    Return the paragraph element.
+    
+    @param string jc: Paragraph alignment, possible values:
+                      left, center, right, both (justified), ...
+                      see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
+                      for a full list
+    
+    If paratext is a list, spawn multiple run/text elements.
+    Support text styles (paratext must then be a list of lists in the form
+    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+    
+    example
+    paratext = [
+        ['some bold text', 'b'],
+        ['some normal text', ''],
+        ['some italic underlined text', 'iu'],
+    ]
+    
+    '''
     # Make our elements
     paragraph = makeelement('p')
-    run = makeelement('r')    
     
-    # Insert lastRenderedPageBreak for assistive technologies like
-    # document narrators to know when a page break occurred.
-    if breakbefore:
-        lastRenderedPageBreak = makeelement('lastRenderedPageBreak')
-        run.append(lastRenderedPageBreak)    
-    text = makeelement('t',tagtext=paratext)
+    if type(paratext) == list:
+        text = []
+        for pt in paratext:
+            if type(pt) == list:
+                text.append([makeelement('t',tagtext=pt[0]), pt[1]])
+            else:
+                text.append([makeelement('t',tagtext=pt), ''])
+    else:
+        text = [[makeelement('t',tagtext=paratext),''],]
     pPr = makeelement('pPr')
     style = stylenames.get(style, 'BodyText')
     pStyle = makeelement('pStyle',attributes={'val':style})
+    pJc = makeelement('jc',attributes={'val':jc})
     pPr.append(pStyle)
+    pPr.append(pJc)
                 
     # Add the text the run, and the run to the paragraph
-    run.append(text)    
-    paragraph.append(pPr)    
-    paragraph.append(run)    
+    paragraph.append(pPr)
+    for t in text:
+        run = makeelement('r')
+        rPr = makeelement('rPr')
+        # Apply styles
+        if t[1].find('b') > -1:
+            b = makeelement('b')
+            rPr.append(b)
+        if t[1].find('u') > -1:
+            u = makeelement('u',attributes={'val':'single'})
+            rPr.append(u)
+        if t[1].find('i') > -1:
+            i = makeelement('i')
+            rPr.append(i)
+        run.append(rPr)
+        # Insert lastRenderedPageBreak for assistive technologies like
+        # document narrators to know when a page break occurred.
+        if breakbefore:
+            lastRenderedPageBreak = makeelement('lastRenderedPageBreak')
+            run.append(lastRenderedPageBreak)
+        run.append(t[0])
+        paragraph.append(run)
     # Return the combined paragraph
     return paragraph
 
@@ -245,12 +287,16 @@ def contenttypes():
     os.chdir(prev_dir)
     return types
 
-def heading(headingtext,headinglevel):
+def heading(headingtext,headinglevel,lang='en'):
     '''Make a new heading, return the heading element'''
+    lmap = {
+        'en': 'Heading',
+        'it': 'Titolo',
+    }
     # Make our elements
     paragraph = makeelement('p')
     pr = makeelement('pPr')
-    style = stylenames.get('Heading' + str(headinglevel), 'Normal')
+    style = stylenames.get(lmap[lang] + str(headinglevel), 'Normal')
     pStyle = makeelement('pStyle',attributes={'val': style})
     run = makeelement('r')
     text = makeelement('t',tagtext=headingtext)
@@ -262,22 +308,65 @@ def heading(headingtext,headinglevel):
     # Return the combined paragraph
     return paragraph   
 
-def table(contents):
-    '''Get a list of lists, return a table'''
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+    '''Get a list of lists, return a table
+    
+        @param list contents: A list of lists describing contents
+                              Every item in the list can be a string or a valid
+                              XML element itself. It can also be a list. In that case
+                              all the listed elements will be merged into the cell.
+        @param bool heading: Tells whether first line should be threated as heading
+                             or not
+        @param list colw: A list of interger. The list must have same element
+                          count of content lines. Specify column Widths in
+                          wunitS
+        @param string cwunit: Unit user for column width:
+                                'pct': fifties of a percent
+                                'dxa': twenties of a point
+                                'nil': no width
+                                'auto': automagically determined
+        @param int tblw: Table width
+        @param int twunit: Unit used for table width. Same as cwunit
+        @param dict borders: Dictionary defining table border. Supported keys are:
+                             'top', 'left', 'bottom', 'right', 'insideH', 'insideV', 'all'
+                             When specified, the 'all' key has precedence over others.
+                             Each key must define a dict of border attributes:
+                             color: The color of the border, in hex or 'auto'
+                             space: The space, measured in points
+                             sz: The size of the border, in eights of a point
+                             val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.htm
+        @param list celstyle: Specify the style for each colum, list of dicts.
+                              supported keys:
+                              'align': specify the alignment, see paragraph documentation,
+        
+        @return lxml.etree: Generated XML etree element
+    '''
     table = makeelement('tbl')
-    columns = len(contents[0][0])    
+    columns = len(contents[0])
     # Table properties
     tableprops = makeelement('tblPr')
     tablestyle = makeelement('tblStyle',attributes={'val':'ColorfulGrid-Accent1'})
-    tablewidth = makeelement('tblW',attributes={'w':'0','type':'auto'})
+    tableprops.append(tablestyle)
+    tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
+    tableprops.append(tablewidth)
+    if len(borders.keys()):
+        tableborders = makeelement('tblBorders')
+        for b in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+            if b in borders.keys() or 'all' in borders.keys():
+                k = 'all' if 'all' in borders.keys() else b
+                attrs = {}
+                for a in borders[k].keys():
+                    attrs[a] = unicode(borders[k][a])
+                borderelem = makeelement(b,attributes=attrs)
+                tableborders.append(borderelem)
+        tableprops.append(tableborders)
     tablelook = makeelement('tblLook',attributes={'val':'0400'})
-    for tableproperty in [tablestyle,tablewidth,tablelook]:
-        tableprops.append(tableproperty)
+    tableprops.append(tablelook)
     table.append(tableprops)    
     # Table Grid    
     tablegrid = makeelement('tblGrid')
-    for _ in range(columns):
-        tablegrid.append(makeelement('gridCol',attributes={'w':'2390'}))
+    for i in range(columns):
+        tablegrid.append(makeelement('gridCol',attributes={'w':str(colw[i]) if colw else '2390'}))
     table.append(tablegrid)     
     # Heading Row    
     row = makeelement('tr')
@@ -285,32 +374,61 @@ def table(contents):
     cnfStyle = makeelement('cnfStyle',attributes={'val':'000000100000'})
     rowprops.append(cnfStyle)
     row.append(rowprops)
-    for heading in contents[0]:
-        cell = makeelement('tc')  
-        # Cell properties  
-        cellprops = makeelement('tcPr')
-        cellwidth = makeelement('tcW',attributes={'w':'2390','type':'dxa'})
-        cellstyle = makeelement('shd',attributes={'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'})
-        cellprops.append(cellwidth)
-        cellprops.append(cellstyle)
-        cell.append(cellprops)        
-        # Paragraph (Content)
-        cell.append(paragraph(heading))
-        row.append(cell)
-    table.append(row)            
-    # Contents Rows   
-    for contentrow in contents[1:]:
+    if heading:
+        i = 0
+        for heading in contents[0]:
+            cell = makeelement('tc')  
+            # Cell properties  
+            cellprops = makeelement('tcPr')
+            if colw:
+                wattr = {'w':str(colw[i]),'type':cwunit}
+            else:
+                wattr = {'w':'0','type':'auto'}
+            cellwidth = makeelement('tcW',attributes=wattr)
+            cellstyle = makeelement('shd',attributes={'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'})
+            cellprops.append(cellwidth)
+            cellprops.append(cellstyle)
+            cell.append(cellprops)        
+            # Paragraph (Content)
+            if not type(heading) == list and not type(heading) == tuple:
+                heading = [heading,]
+            for h in heading:
+                if isinstance(h, etree._Element):
+                    cell.append(h)
+                else:
+                    cell.append(paragraph(h,jc='center'))
+            row.append(cell)
+            i += 1
+        table.append(row)          
+    # Contents Rows
+    for contentrow in contents[1 if heading else 0:]:
         row = makeelement('tr')     
+        i = 0
         for content in contentrow:   
             cell = makeelement('tc')
             # Properties
             cellprops = makeelement('tcPr')
-            cellwidth = makeelement('tcW',attributes={'type':'dxa'})
+            if colw:
+                wattr = {'w':str(colw[i]),'type':cwunit}
+            else:
+                wattr = {'w':'0','type':'auto'}
+            cellwidth = makeelement('tcW',attributes=wattr)
             cellprops.append(cellwidth)
             cell.append(cellprops)
             # Paragraph (Content)
-            cell.append(paragraph(content))
+            if not type(content) == list and not type(content) == tuple:
+                content = [content,]
+            for c in content:
+                if isinstance(c, etree._Element):
+                    cell.append(c)
+                else:
+                    if celstyle and 'align' in celstyle[i].keys():
+                        align = celstyle[i]['align']
+                    else:
+                        align = 'left'
+                    cell.append(paragraph(c,jc=align))
             row.append(cell)    
+            i += 1
         table.append(row)   
     return table                 
 
@@ -436,6 +554,152 @@ def replace(document,search,replace):
                     element.text = re.sub(search,replace,element.text)
     return newdocument
 
+def clean(document):
+    """ Perform misc cleaning operations on documents.
+        Returns cleaned document.
+    """
+    
+    newdocument = document
+    
+    # Clean empty text and r tags
+    for t in ('t', 'r'):
+        rmlist = []
+        for element in newdocument.iter():
+            if element.tag == '{%s}%s' % (nsprefixes['w'], t):
+                if not element.text and not len(element):
+                    rmlist.append(element)
+        for element in rmlist:
+            element.getparent().remove(element)
+    
+    return newdocument
+
+def advReplace(document,search,replace,bs=3):
+    '''Replace all occurences of string with a different string, return updated document
+    
+    This is a modified version of python-docx.replace() that takes into
+    account blocks of <bs> elements at a time. The replace element can also
+    be a string or an xml etree element.
+    
+    What it does:
+    It searches the entire document body for text blocks.
+    Then scan thos text blocks for replace.
+    Since the text to search could be spawned across multiple text blocks,
+    we need to adopt some sort of algorithm to handle this situation.
+    The smaller matching group of blocks (up to bs) is then adopted.
+    If the matching group has more than one block, blocks other than first
+    are cleared and all the replacement text is put on first block.
+    
+    Examples:
+    original text blocks : [ 'Hel', 'lo,', ' world!' ]
+    search / replace: 'Hello,' / 'Hi!'
+    output blocks : [ 'Hi!', '', ' world!' ]
+    
+    original text blocks : [ 'Hel', 'lo,', ' world!' ]
+    search / replace: 'Hello, world' / 'Hi!'
+    output blocks : [ 'Hi!!', '', '' ]
+    
+    original text blocks : [ 'Hel', 'lo,', ' world!' ]
+    search / replace: 'Hel' / 'Hal'
+    output blocks : [ 'Hal', 'lo,', ' world!' ]
+    
+    @param instance  document: The original document
+    @param str       search: The text to search for (regexp)
+    @param mixed replace: The replacement text or lxml.etree element to
+                          append, or a list of etree elements
+    @param int       bs: See above
+    
+    @return instance The document with replacement applied
+    
+    '''
+    # Enables debug output
+    DEBUG = False
+    
+    newdocument = document
+    
+    # Compile the search regexp
+    searchre = re.compile(search)
+    
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+    
+    for element in newdocument.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                # Add this element to searchels
+                searchels.append(element)
+                if len(searchels) > bs:
+                    # Is searchels is too long, remove first elements
+                    searchels.pop(0)
+                
+                # Search all combinations, of searchels, starting from
+                # smaller up to bigger ones
+                # l = search lenght
+                # s = search start
+                # e = element IDs to merge
+                found = False
+                for l in range(1,len(searchels)+1):
+                    if found:
+                        break
+                    #print "slen:", l
+                    for s in range(len(searchels)):
+                        if found:
+                            break
+                        if s+l <= len(searchels):
+                            e = range(s,s+l)
+                            #print "elems:", e
+                            txtsearch = ''
+                            for k in e:
+                                txtsearch += searchels[k].text
+                
+                            # Searcs for the text in the whole txtsearch
+                            match = searchre.search(txtsearch)
+                            if match:
+                                found = True
+                                
+                                # I've found something :)
+                                if DEBUG:
+                                    print "Found element!"
+                                    print "Search regexp:", searchre.pattern
+                                    print "Requested replacement:", replace
+                                    print "Matched text:", txtsearch
+                                    print "Matched text (splitted):", map(lambda i:i.text,searchels)
+                                    print "Matched at position:", match.start()
+                                    print "matched in elements:", e
+                                    if isinstance(replace, etree._Element):
+                                        print "Will replace with XML CODE"
+                                    elif type(replace) == list or type(replace) == tuple:
+                                        print "Will replace with LIST OF ELEMENTS"
+                                    else:
+                                        print "Will replace with:", re.sub(search,replace,txtsearch)
+
+                                curlen = 0
+                                replaced = False
+                                for i in e:
+                                    curlen += len(searchels[i].text)
+                                    if curlen > match.start() and not replaced:
+                                        # The match occurred in THIS element. Puth in the
+                                        # whole replaced text
+                                        if isinstance(replace, etree._Element):
+                                            # If I'm replacing with XML, clear the text in the
+                                            # tag and append the element
+                                            searchels[i].text = re.sub(search,'',txtsearch)
+                                            searchels[i].append(replace)
+                                        elif type(replace) == list or type(replace) == tuple:
+                                            # I'm replacing with a list of etree elements
+                                            searchels[i].text = re.sub(search,'',txtsearch)
+                                            for r in replace:
+                                                searchels[i].append(r)
+                                        else:
+                                            # Replacing with pure text
+                                            searchels[i].text = re.sub(search,replace,txtsearch)
+                                        replaced = True
+                                        if DEBUG:
+                                            print "Replacing in element #:", i
+                                    else:
+                                        # Clears the other text elements
+                                        searchels[i].text = ''
+    return newdocument
 
 def getdocumenttext(document):
     '''Return the raw text of a document, as a list of paragraphs.'''
