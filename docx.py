@@ -8,7 +8,11 @@ See LICENSE for licensing information.
 '''
 
 from lxml import etree
-import Image
+try:
+    from PIL import Image
+except ImportError:
+    # BBB for broken PIL installations
+    import Image
 import zipfile
 import shutil
 import re
@@ -18,19 +22,19 @@ from os.path import join
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
-TEMPLATE_DIR = join(os.path.dirname(__file__),'docx-template') # installed
-if not os.path.isdir(TEMPLATE_DIR):
-    TEMPLATE_DIR = join(os.path.dirname(__file__),'template') # dev
+MASTER_TEMPLATE_DIR = join(os.path.dirname(__file__),'docx-template') # installed
+if not os.path.isdir(MASTER_TEMPLATE_DIR):
+    MASTER_TEMPLATE_DIR = join(os.path.dirname(__file__),'template') # dev
 
 # FIXME: QUICK-HACK to prevent picture() from staining template directory.
 # temporary directory will create per module import.
-template_dir = TEMPLATE_DIR
+TEMPLATE_DIR = MASTER_TEMPLATE_DIR
 def set_template(template_path):
     #print 'template loading "%s"' % template_path
-    global template_dir
-    template_dir = template_path
+    global TEMPLATE_DIR
+    TEMPLATE_DIR = template_path
     stylenames = {}  # reset style names
-    update_stylenames(join(template_dir, 'word', 'styles.xml'))
+    update_stylenames(join(TEMPLATE_DIR, 'word', 'styles.xml'))
 
 # END of QUICK-HACK
 
@@ -262,7 +266,7 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
 
 def contenttypes():
     prev_dir = os.getcwd() # save previous working dir
-    os.chdir(template_dir)
+    os.chdir(TEMPLATE_DIR)
 
     filename = '[Content_Types].xml'
     if not os.path.exists(filename):
@@ -440,7 +444,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''  
     # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
+    media_dir = join(TEMPLATE_DIR,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
     picpath, picname = os.path.abspath(picname), os.path.basename(picname)
@@ -786,7 +790,7 @@ def websettings():
 
 def relationshiplist():
     prev_dir = os.getcwd() # save previous working dir
-    os.chdir(template_dir)
+    os.chdir(TEMPLATE_DIR)
 
     filename = 'word/_rels/document.xml.rels'
     if not os.path.exists(filename):
@@ -820,12 +824,12 @@ def wordrelationships(relationshiplist):
 
 def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,docxfilename):
     '''Save a modified document'''
-    assert os.path.isdir(template_dir)
+    assert os.path.isdir(TEMPLATE_DIR)
     docxfile = zipfile.ZipFile(docxfilename,mode='w',compression=zipfile.ZIP_DEFLATED)
     
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
-    os.chdir(template_dir)
+    os.chdir(TEMPLATE_DIR)
     
     # Serialize our trees into out zip file
     treesandfiles = {document:'word/document.xml',
@@ -835,7 +839,6 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
                      websettings:'word/webSettings.xml',
                      wordrelationships:'word/_rels/document.xml.rels'}
     for tree in treesandfiles:
-        print 'Saving: '+treesandfiles[tree]    
         treestring = etree.tostring(tree, pretty_print=True)
         docxfile.writestr(treesandfiles[tree],treestring)
     
@@ -851,10 +854,9 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
             archivename = '/'.join(archivename.split(os.sep))  # multibyte ok?
             if archivename in files_to_skip:
                 continue
-            print 'Saving: '+archivename          
             docxfile.write(templatefile, archivename)
-    print 'Saved new file to: '+docxfilename
     os.chdir(prev_dir) # restore previous working dir
+    docxfile.close()
     return
     
 
