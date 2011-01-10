@@ -46,7 +46,7 @@ Thanks to the awesomeness of the lxml module, we can:
 - Use **easy_install** to fetch the **lxml** and **PIL** modules. 
 - Then run: 
 
-<pre>example-makedocument.py</pre>
+<pre>make_document.py</pre>
 
 Congratulations, you just made and then modified a Word document!
 
