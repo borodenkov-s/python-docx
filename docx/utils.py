@@ -35,4 +35,3 @@ def make_element(tagname, tagtext=None, nsprefix='w', attributes=None, attrnspre
     if tagtext:
         newelement.text = tagtext    
     return newelement
-
