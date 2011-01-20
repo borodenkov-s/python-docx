@@ -53,7 +53,7 @@ class DocxDocument(object):
             if element.tag == '{%s}t' % NSPREFIXES['w']: # t (text) elements
                 if element.text:
                     if searchre.search(element.text):
-                        if isinstance(replace, str):
+                        if isinstance(replace, str) or isinstance(replace, unicode):
                             element.text = re.sub(search,replace,element.text)
                         else:
                             parent = element.getparent()
@@ -140,7 +140,7 @@ class DocxDocument(object):
 
     def _copy_media_files(self):
         for name, path in self.word_relationships.to_copy:
-            out = 'word\\media\\' + name # IN DESPERATE NEED OF A FIX
+            out = 'word/media/' + name # IN DESPERATE NEED OF A FIX
             self.zip_file.write(path, out)
 
     def save(self, filename):
