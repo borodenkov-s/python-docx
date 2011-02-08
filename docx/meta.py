@@ -136,7 +136,8 @@ class ContentTypes(object):
             'xml':'application/xml',
             'jpeg':'image/jpeg',
             'gif':'image/gif',
-            'png':'image/png'
+            'png':'image/png',
+            'wmf': 'image/x-wmf',
         }
         for extension in filetypes:
             content_types.append(
