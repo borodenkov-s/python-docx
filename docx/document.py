@@ -278,3 +278,9 @@ class Document(object):
                 paratextlist.append(paratext)             
                
         return paratextlist
+    
+    # collapse fancy structures, and give output like ("heading", "This was a <strong>lovely</strong> day.")
+    # (if MS uses different tags for strong, em and links, we can do that transformation in a to_html 
+    # method or something)
+    def fold(self):
+        raise NotImplementedError()
