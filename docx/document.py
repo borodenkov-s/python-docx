@@ -30,8 +30,8 @@ class Document(object):
             types.append(Element('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
         return types
 
-    def __init__(path=None):
-        if filename:
+    def __init__(self, path=None):
+        if path:
             self._open(path)
         else:
             self._create()
@@ -39,7 +39,7 @@ class Document(object):
     def _open(self, path):
         '''Open a docx file, return a document XML tree'''
         self.path = path
-        mydoc = zipfile.ZipFile(file)
+        mydoc = zipfile.ZipFile(path)
         xmlcontent = mydoc.read('word/document.xml')
         self.xml = etree.fromstring(xmlcontent)
     
@@ -262,7 +262,7 @@ class Document(object):
         paralist = []
         for element in self.xml.iter():
             # Find p (paragraph) elements
-            if element.tag == '{'+nsprefixes['w']+'}p':
+            if element.tag == '{'+namespaces['w']+'}p':
                 paralist.append(element)    
         # Since a single sentence might be spread over multiple text elements, iterate through each 
         # paragraph, appending all text (t) children to that paragraphs text.     
@@ -271,7 +271,7 @@ class Document(object):
             # Loop through each paragraph
             for element in para.iter():
                 # Find t (text) elements
-                if element.tag == '{'+nsprefixes['w']+'}t':
+                if element.tag == '{'+namespaces['w']+'}t':
                     if element.text:
                         paratext = paratext+element.text
             # Add our completed paragraph text to the list of paragraph text    

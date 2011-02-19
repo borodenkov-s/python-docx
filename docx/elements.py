@@ -132,30 +132,30 @@ class Paragraph(Element):
             run.append(t[0])
             paragraph.append(run)
         
-        self.paragraph = paragraph
+        self.xml = paragraph
         self.style = style
         self.jc = jc
 
 def Heading(Element):
     def __init__(headingtext, headinglevel, lang='en'):
-    '''Make a new heading, return the heading element'''
-    lmap = {
-        'en': 'Heading',
-        'it': 'Titolo',
-    }
-    # Make our elements
-    paragraph = Element('p')
-    pr = Element('pPr')
-    pStyle = Element('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})    
-    run = Element('r')
-    text = Element('t',tagtext=headingtext)
-    # Add the text the run, and the run to the paragraph
-    pr.append(pStyle)
-    run.append(text)
-    paragraph.append(pr)   
-    paragraph.append(run)    
-    # Return the combined paragraph
-    return paragraph   
+        '''Make a new heading, return the heading element'''
+        lmap = {
+            'en': 'Heading',
+            'it': 'Titolo',
+        }
+        # Make our elements
+        paragraph = Element('p')
+        pr = Element('pPr')
+        pStyle = Element('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})    
+        run = Element('r')
+        text = Element('t',tagtext=headingtext)
+        # Add the text the run, and the run to the paragraph
+        pr.append(pStyle)
+        run.append(text)
+        paragraph.append(pr)   
+        paragraph.append(run)    
+        
+        self.xml = paragraph
 
 def Table(Element):
     def __init__(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
@@ -280,103 +280,109 @@ def Table(Element):
                 row.append(cell)    
                 i += 1
             table.append(row)   
-        return table                 
+        
+        self.xml = table              
 
 class Picture(Element):
     def __init__(relationshiplist, picname, picdescription, pixelwidth=None,
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
-    '''Take a relationshiplist, picture file name, and return a paragraph containing the image
-    and an updated relationshiplist'''
-    # http://openxmldeveloper.org/articles/462.aspx
-    # Create an image. Size may be specified, otherwise it will based on the
-    # pixel size of image. Return a paragraph containing the picture'''  
-    # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
-    if not os.path.isdir(media_dir):
-        os.mkdir(media_dir)
-    shutil.copyfile(picname, join(media_dir,picname))
-
-    # Check if the user has specified a size
-    if not pixelwidth or not pixelheight:
-        # If not, get info from the picture itself
-        pixelwidth,pixelheight = Image.open(picname).size[0:2]
-
-    # OpenXML measures on-screen objects in English Metric Units
-    # 1cm = 36000 EMUs            
-    emuperpixel = 12667
-    width = str(pixelwidth * emuperpixel)
-    height = str(pixelheight * emuperpixel)   
+        '''Take a relationshiplist, picture file name, and return a paragraph containing the image
+        and an updated relationshiplist'''
+        # http://openxmldeveloper.org/articles/462.aspx
+        # Create an image. Size may be specified, otherwise it will based on the
+        # pixel size of image. Return a paragraph containing the picture'''  
+        # Copy the file into the media dir
+        media_dir = join(template_dir,'word','media')
+        if not os.path.isdir(media_dir):
+            os.mkdir(media_dir)
+        shutil.copyfile(picname, join(media_dir,picname))
     
-    # Set relationship ID to the first available  
-    picid = '2'    
-    picrelid = 'rId'+str(len(relationshiplist)+1)
-    relationshiplist.append([
-        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
-        'media/'+picname])
+        # Check if the user has specified a size
+        if not pixelwidth or not pixelheight:
+            # If not, get info from the picture itself
+            pixelwidth,pixelheight = Image.open(picname).size[0:2]
     
-    # There are 3 main elements inside a picture
-    # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
-    blipfill = Element('blipFill',nsprefix='pic')
-    blipfill.append(Element('blip',nsprefix='a',attrnsprefix='r',attributes={'embed':picrelid}))
-    stretch = Element('stretch',nsprefix='a')
-    stretch.append(Element('fillRect',nsprefix='a'))
-    blipfill.append(Element('srcRect',nsprefix='a'))
-    blipfill.append(stretch)
-    
-    # 2. The non visual picture properties 
-    nvpicpr = Element('nvPicPr',nsprefix='pic')
-    cnvpr = Element('cNvPr',nsprefix='pic',
-                        attributes={'id':'0','name':'Picture 1','descr':picname}) 
-    nvpicpr.append(cnvpr) 
-    cnvpicpr = Element('cNvPicPr',nsprefix='pic')                           
-    cnvpicpr.append(Element('picLocks', nsprefix='a', 
-                    attributes={'noChangeAspect':str(int(nochangeaspect)),
-                    'noChangeArrowheads':str(int(nochangearrowheads))}))
-    nvpicpr.append(cnvpicpr)
+        # OpenXML measures on-screen objects in English Metric Units
+        # 1cm = 36000 EMUs            
+        emuperpixel = 12667
+        width = str(pixelwidth * emuperpixel)
+        height = str(pixelheight * emuperpixel)   
         
-    # 3. The Shape properties
-    sppr = Element('spPr',nsprefix='pic',attributes={'bwMode':'auto'})
-    xfrm = Element('xfrm',nsprefix='a')
-    xfrm.append(Element('off',nsprefix='a',attributes={'x':'0','y':'0'}))
-    xfrm.append(Element('ext',nsprefix='a',attributes={'cx':width,'cy':height}))
-    prstgeom = Element('prstGeom',nsprefix='a',attributes={'prst':'rect'})
-    prstgeom.append(Element('avLst',nsprefix='a'))
-    sppr.append(xfrm)
-    sppr.append(prstgeom)
+        # Set relationship ID to the first available  
+        picid = '2'    
+        picrelid = 'rId'+str(len(relationshiplist)+1)
+        relationshiplist.append([
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            'media/'+picname])
+        
+        # There are 3 main elements inside a picture
+        # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+        blipfill = Element('blipFill',nsprefix='pic')
+        blipfill.append(Element('blip',nsprefix='a',attrnsprefix='r',attributes={'embed':picrelid}))
+        stretch = Element('stretch',nsprefix='a')
+        stretch.append(Element('fillRect',nsprefix='a'))
+        blipfill.append(Element('srcRect',nsprefix='a'))
+        blipfill.append(stretch)
+        
+        # 2. The non visual picture properties 
+        nvpicpr = Element('nvPicPr',nsprefix='pic')
+        cnvpr = Element('cNvPr',nsprefix='pic',
+                            attributes={'id':'0','name':'Picture 1','descr':picname}) 
+        nvpicpr.append(cnvpr) 
+        cnvpicpr = Element('cNvPicPr',nsprefix='pic')                           
+        cnvpicpr.append(Element('picLocks', nsprefix='a', 
+                        attributes={'noChangeAspect':str(int(nochangeaspect)),
+                        'noChangeArrowheads':str(int(nochangearrowheads))}))
+        nvpicpr.append(cnvpicpr)
+            
+        # 3. The Shape properties
+        sppr = Element('spPr',nsprefix='pic',attributes={'bwMode':'auto'})
+        xfrm = Element('xfrm',nsprefix='a')
+        xfrm.append(Element('off',nsprefix='a',attributes={'x':'0','y':'0'}))
+        xfrm.append(Element('ext',nsprefix='a',attributes={'cx':width,'cy':height}))
+        prstgeom = Element('prstGeom',nsprefix='a',attributes={'prst':'rect'})
+        prstgeom.append(Element('avLst',nsprefix='a'))
+        sppr.append(xfrm)
+        sppr.append(prstgeom)
+        
+        # Add our 3 parts to the picture element
+        pic = Element('pic',nsprefix='pic')    
+        pic.append(nvpicpr)
+        pic.append(blipfill)
+        pic.append(sppr)
+        
+        # Now make the supporting elements
+        # The following sequence is just: make element, then add its children
+        graphicdata = Element('graphicData',nsprefix='a',
+            attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+        graphicdata.append(pic)
+        graphic = Element('graphic',nsprefix='a')
+        graphic.append(graphicdata)
     
-    # Add our 3 parts to the picture element
-    pic = Element('pic',nsprefix='pic')    
-    pic.append(nvpicpr)
-    pic.append(blipfill)
-    pic.append(sppr)
-    
-    # Now make the supporting elements
-    # The following sequence is just: make element, then add its children
-    graphicdata = Element('graphicData',nsprefix='a',
-        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
-    graphicdata.append(pic)
-    graphic = Element('graphic',nsprefix='a')
-    graphic.append(graphicdata)
-
-    framelocks = Element('graphicFrameLocks',nsprefix='a',attributes={'noChangeAspect':'1'})    
-    framepr = Element('cNvGraphicFramePr',nsprefix='wp')
-    framepr.append(framelocks)
-    docpr = Element('docPr',nsprefix='wp',
-        attributes={'id':picid,'name':'Picture 1','descr':picdescription})
-    effectextent = Element('effectExtent',nsprefix='wp',
-        attributes={'l':'25400','t':'0','r':'0','b':'0'})
-    extent = Element('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
-    inline = Element('inline',
-        attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"},nsprefix='wp')
-    inline.append(extent)
-    inline.append(effectextent)
-    inline.append(docpr)
-    inline.append(framepr)
-    inline.append(graphic)
-    drawing = Element('drawing')
-    drawing.append(inline)
-    run = Element('r')
-    run.append(drawing)
-    paragraph = Element('p')
-    paragraph.append(run)
-    return relationshiplist,paragraph
+        framelocks = Element('graphicFrameLocks',nsprefix='a',attributes={'noChangeAspect':'1'})    
+        framepr = Element('cNvGraphicFramePr',nsprefix='wp')
+        framepr.append(framelocks)
+        docpr = Element('docPr',nsprefix='wp',
+            attributes={'id':picid,'name':'Picture 1','descr':picdescription})
+        effectextent = Element('effectExtent',nsprefix='wp',
+            attributes={'l':'25400','t':'0','r':'0','b':'0'})
+        extent = Element('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
+        inline = Element('inline',
+            attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"},nsprefix='wp')
+        inline.append(extent)
+        inline.append(effectextent)
+        inline.append(docpr)
+        inline.append(framepr)
+        inline.append(graphic)
+        drawing = Element('drawing')
+        drawing.append(inline)
+        run = Element('r')
+        run.append(drawing)
+        paragraph = Element('p')
+        paragraph.append(run)
+        
+        self.xml = paragraph
+        self.relationship_list = relationshiplist
+        
+    def with_relationships(self):
+        return (self.relationship_list, paragraph)
