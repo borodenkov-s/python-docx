@@ -3,8 +3,8 @@
 from namespaces import namespaces, content_types
 from os import path
 
-""" Open and modify Microsoft Word 2007 docx files (called 'OpenXML' 
-and 'Office OpenXML' by Microsoft)"""
+''' Open and modify Microsoft Word 2007 docx files (called 'OpenXML' 
+and 'Office OpenXML' by Microsoft) '''
 
 from lxml import etree
 import Image
@@ -14,7 +14,7 @@ import re
 import time
 import os
 from copy import deepcopy
-from os.path import join
+from os import path
 from elements import Element
 
 class Document(object):
@@ -96,10 +96,9 @@ class Document(object):
         return result
 
     def clean(self):
-        """ Perform misc cleaning operations on documents.
-            Returns cleaned document.
-        """
-        
+        ''' Perform misc cleaning operations on documents.
+        Returns cleaned document. '''
+                
         newdocument = deepcopy(self)
         
         # Clean empty text and r tags
