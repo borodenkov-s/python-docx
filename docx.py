@@ -527,7 +527,13 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
 
 def searchdocx(doc,s):
     document = getdocument(doc)
-    search(document,s)
+    if (search(document,s)):
+        return True
+    for name in doc:
+        if (name.startswith('word/header') or name.startswith('word/footer')) and name.endswith('.xml'):
+            if search(doc[name],s):
+                return True
+    return False
 
 def search(document,search):
     '''Search a document for a regex, return success / fail result'''
@@ -545,6 +551,9 @@ def replacedocx(doc,search,r):
     document = getdocument(newdoc)
     document = replace(document,search,r)
     newdoc['word/document.xml'] = document
+    for name in newdoc:
+        if (name.startswith('word/header') or name.startswith('word/footer')) and name.endswith('.xml'):
+            newdoc[name] = replace(newdoc[name],search,r)
     return newdoc
 
 def replace(document,search,replace):
