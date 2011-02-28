@@ -408,10 +408,10 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 
 def append(doc, paragraph):
     newdoc = deepcopy(doc)
-    document = getdocument(doc)
+    document = getdocument(newdoc)
     docbody = getdocbody(document)
     docbody.append(paragraph)
-    doc['word/document.xml'] = document
+    newdoc['word/document.xml'] = document
     return doc
 
 def addpicture(doc, picname, picdescription, pixelwidth=None,
@@ -423,15 +423,16 @@ def addpicture(doc, picname, picdescription, pixelwidth=None,
     # only works if the picture is in the same folder
     newdoc['word/media/'+picname] = image
 
-    picture, relationshiplist = picture(relationshiplist, picname,
-                                        picdescription, pixeslwidth, nochangeaspect, 
-                                        nochangearrowheads, False)
+    relationshiplist, pic = picture(relationshiplist, picname,
+                                    picdescription, pixelwidth, nochangeaspect,
+                                    nochangearrowheads)
+
     newdoc['word/_rels/document.xml.rels'] = wordrelationships(relationshiplist)
-    newdoc = append(doc, picture)
+    newdoc = append(doc, pic)
     return newdoc
 
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
-            pixelheight=None, nochangeaspect=True, nochangearrowheads=True,):
+            pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
@@ -523,6 +524,9 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     paragraph.append(run)
     return relationshiplist,paragraph
 
+def searchdocx(doc,s):
+    document = getdocument(doc)
+    search(document,s)
 
 def search(document,search):
     '''Search a document for a regex, return success / fail result'''
@@ -534,6 +538,13 @@ def search(document,search):
                 if searchre.search(element.text):
                     result = True
     return result
+
+def replacedocx(doc,search,r):
+    newdoc = deepcopy(doc)
+    document = getdocument(newdoc)
+    replace(document,search,r)
+    newdoc['word/document.xml'] = document
+    return newdoc
 
 def replace(document,search,replace):
     '''Replace all occurences of string with a different string, return updated document'''
