@@ -412,7 +412,7 @@ def append(doc, paragraph):
     docbody = getdocbody(document)
     docbody.append(paragraph)
     newdoc['word/document.xml'] = document
-    return doc
+    return newdoc
 
 def addpicture(doc, picname, picdescription, pixelwidth=None,
                pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
@@ -420,15 +420,16 @@ def addpicture(doc, picname, picdescription, pixelwidth=None,
     relationshiplist = getrelationshiplist(doc)
     image = open(picname).read()
 
-    # only works if the picture is in the same folder
-    newdoc['word/media/'+picname] = image
+    folder,filename = os.path.split(picname)
+    arcname = os.path.join('word/media', filename)
+    newdoc[arcname] = image
 
     relationshiplist, pic = picture(relationshiplist, picname,
                                     picdescription, pixelwidth, nochangeaspect,
                                     nochangearrowheads)
 
     newdoc['word/_rels/document.xml.rels'] = wordrelationships(relationshiplist)
-    newdoc = append(doc, pic)
+    newdoc = append(newdoc, pic)
     return newdoc
 
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
@@ -542,7 +543,7 @@ def search(document,search):
 def replacedocx(doc,search,r):
     newdoc = deepcopy(doc)
     document = getdocument(newdoc)
-    replace(document,search,r)
+    document = replace(document,search,r)
     newdoc['word/document.xml'] = document
     return newdoc
 
@@ -804,7 +805,7 @@ def getrelationshiplist(doc):
         if element.tag.endswith('Relationship'):
             target = element.attrib['Target']
             type = element.attrib['Type']
-            relationshiplist.append([target,type])
+            relationshiplist.append([type,target])
     return relationshiplist
 
 def wordrelationships(relationshiplist):
@@ -813,8 +814,7 @@ def wordrelationships(relationshiplist):
     # FIXME: using string hack instead of making element
     #relationships = makeelement('Relationships',nsprefix='pr')
     relationships = etree.fromstring(
-    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-       </Relationships>'''
+    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'''
     )
     count = 0
     for relationship in relationshiplist:
@@ -828,8 +828,10 @@ def savedocx(doc,docxfilename):
     docxfile = zipfile.ZipFile(docxfilename,mode='w',compression=zipfile.ZIP_DEFLATED)
     for name in doc:
         print 'Saving: '+name
-        if name.endswith(('xml','.rels')):
+        if name.endswith(('.xml','.rels')):
             data = etree.tostring(doc[name], pretty_print=True)
+            #data = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+#''' + data
             docxfile.writestr(name, data)
         else:
             docxfile.writestr(name, doc[name])
