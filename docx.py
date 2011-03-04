@@ -7,8 +7,12 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 
+import logging
 from lxml import etree
-import Image
+try:
+    from PIL import Image
+except ImportError:
+    import Image
 import zipfile
 import shutil
 import re
@@ -20,6 +24,8 @@ from os.path import join
 # newdocument = deepcopy(document) will create two seperate objects.
 # could be removed if not adhering to a strict functional style.
 from copy import deepcopy
+
+log = logging.getLogger(__name__)
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
@@ -118,7 +124,7 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
     '''Create an element & return it'''
     # Deal with list of nsprefix by making namespacemap
     namespacemap = None
-    if type(nsprefix) == list:
+    if isinstance(nsprefix, list):
         namespacemap = {}
         for prefix in nsprefix:
             namespacemap[prefix] = nsprefixes[prefix]
@@ -189,19 +195,19 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
 
     example
     paratext = [
-        ['some bold text', 'b'],
-        ['some normal text', ''],
-        ['some italic underlined text', 'iu'],
+        ('some bold text', 'b'),
+        ('some normal text', ''),
+        ('some italic underlined text', 'iu'),
     ]
 
     '''
     # Make our elements
     paragraph = makeelement('p')
 
-    if type(paratext) == list:
+    if isinstance(paratext, list):
         text = []
         for pt in paratext:
-            if type(pt) == list:
+            if isinstance(pt, (list,tuple)):
                 text.append([makeelement('t',tagtext=pt[0]), pt[1]])
             else:
                 text.append([makeelement('t',tagtext=pt), ''])
@@ -364,7 +370,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
             cellprops.append(cellstyle)
             cell.append(cellprops)
             # Paragraph (Content)
-            if not type(heading) == list and not type(heading) == tuple:
+            if not isinstance(heading, (list, tuple)):
                 heading = [heading,]
             for h in heading:
                 if isinstance(h, etree._Element):
@@ -390,7 +396,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
             cellprops.append(cellwidth)
             cell.append(cellprops)
             # Paragraph (Content)
-            if not type(content) == list and not type(content) == tuple:
+            if not isinstance(content, (list, tuple)):
                 content = [content,]
             for c in content:
                 if isinstance(c, etree._Element):
@@ -432,6 +438,7 @@ def addpicture(doc, picname, picdescription, pixelwidth=None,
     newdoc = append(newdoc, pic)
     return newdoc
 
+
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
@@ -439,6 +446,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
+
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -584,6 +592,24 @@ def clean(document):
 
     return newdocument
 
+def findTypeParent(element, tag):
+    """ Finds fist parent of element of the given type
+    
+    @param object element: etree element
+    @param string the tag parent to search for
+    
+    @return object element: the found parent or None when not found
+    """
+    
+    p = element
+    while True:
+        p = p.getparent()
+        if p.tag == tag:
+            return p
+    
+    # Not found
+    return None
+
 def advReplace(document,search,replace,bs=3):
     '''Replace all occurences of string with a different string, return updated document
 
@@ -670,19 +696,19 @@ def advReplace(document,search,replace,bs=3):
 
                                 # I've found something :)
                                 if DEBUG:
-                                    print "Found element!"
-                                    print "Search regexp:", searchre.pattern
-                                    print "Requested replacement:", replace
-                                    print "Matched text:", txtsearch
-                                    print "Matched text (splitted):", map(lambda i:i.text,searchels)
-                                    print "Matched at position:", match.start()
-                                    print "matched in elements:", e
+                                    log.debug("Found element!")
+                                    log.debug("Search regexp: %s", searchre.pattern)
+                                    log.debug("Requested replacement: %s", replace)
+                                    log.debug("Matched text: %s", txtsearch)
+                                    log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                                    log.debug("Matched at position: %s", match.start())
+                                    log.debug( "matched in elements: %s", e)
                                     if isinstance(replace, etree._Element):
-                                        print "Will replace with XML CODE"
-                                    elif type(replace) == list or type(replace) == tuple:
-                                        print "Will replace with LIST OF ELEMENTS"
+                                        log.debug("Will replace with XML CODE")
+                                    elif isinstance(replace (list, tuple)):
+                                        log.debug("Will replace with LIST OF ELEMENTS")
                                     else:
-                                        print "Will replace with:", re.sub(search,replace,txtsearch)
+                                        log.debug("Will replace with:", re.sub(search,replace,txtsearch))
 
                                 curlen = 0
                                 replaced = False
@@ -692,21 +718,24 @@ def advReplace(document,search,replace,bs=3):
                                         # The match occurred in THIS element. Puth in the
                                         # whole replaced text
                                         if isinstance(replace, etree._Element):
-                                            # If I'm replacing with XML, clear the text in the
-                                            # tag and append the element
-                                            searchels[i].text = re.sub(search,'',txtsearch)
-                                            searchels[i].append(replace)
-                                        elif type(replace) == list or type(replace) == tuple:
+                                            # Convert to a list and process it later
+                                            replace = [ replace, ]
+                                        if isinstance(replace, (list,tuple)):
                                             # I'm replacing with a list of etree elements
+                                            # clear the text in the tag and append the element after the
+                                            # parent paragraph
+                                            # (because t elements cannot have childs)
+                                            p = findTypeParent(searchels[i], '{%s}p' % nsprefixes['w'])
                                             searchels[i].text = re.sub(search,'',txtsearch)
+                                            insindex = p.getparent().index(p) + 1
                                             for r in replace:
-                                                searchels[i].append(r)
+                                                p.getparent().insert(insindex, r)
+                                                insindex += 1
                                         else:
                                             # Replacing with pure text
                                             searchels[i].text = re.sub(search,replace,txtsearch)
                                         replaced = True
-                                        if DEBUG:
-                                            print "Replacing in element #:", i
+                                        log.debug("Replacing in element #: %s", i)
                                     else:
                                         # Clears the other text elements
                                         searchels[i].text = ''
@@ -836,7 +865,7 @@ def wordrelationships(relationshiplist):
 def savedocx(doc,docxfilename):
     docxfile = zipfile.ZipFile(docxfilename,mode='w',compression=zipfile.ZIP_DEFLATED)
     for name in doc:
-        print 'Saving: '+name
+        log.info('Saving: %s', name)
         if name.endswith(('.xml','.rels')):
             data = etree.tostring(doc[name], pretty_print=True)
             #data = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -844,4 +873,4 @@ def savedocx(doc,docxfilename):
             docxfile.writestr(name, data)
         else:
             docxfile.writestr(name, doc[name])
-    print 'Saved new file to: '+docxfilename
+    log.info('Saved new file to: %s', docxfilename)
