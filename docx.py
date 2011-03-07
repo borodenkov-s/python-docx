@@ -240,7 +240,7 @@ def heading(headingtext,headinglevel,lang='en'):
     # Return the combined paragraph
     return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, headstyle={}):
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
@@ -270,9 +270,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
                               'align': specify the alignment, see paragraph documentation,
-
+        @param dict headstyle: Specify the style for headers. Default style is:
+                               'val':'clear','color':'auto','fill':'548DD4',
+                               'themeFill':'text2','themeFillTint':'99'.
+                               Specify None for a key to remove it.
+                               ( See BASE_HEADER_STYLE )
+                               Any key can be overridden.
         @return lxml.etree: Generated XML etree element
     '''
+    BASE_HEADER_STYLE = {'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'}
     table = makeelement('tbl')
     columns = len(contents[0])
     # Table properties
@@ -317,7 +323,14 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
             else:
                 wattr = {'w':'0','type':'auto'}
             cellwidth = makeelement('tcW',attributes=wattr)
-            cellstyle = makeelement('shd',attributes={'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'})
+            headerstyle = BASE_HEADER_STYLE
+            for k in headstyle.keys():
+                if headstyle[k] == None:
+                    if k in headerstyle:
+                        del headerstyle[k]
+                else:
+                    headerstyle[k] = headstyle[k]
+            cellstyle = makeelement('shd',attributes=headerstyle)
             cellprops.append(cellwidth)
             cellprops.append(cellstyle)
             cell.append(cellprops)
