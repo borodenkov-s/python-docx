@@ -838,12 +838,12 @@ def newrelationshiplist():
 
 def getrelationshiplist(doc):
     relationships = doc['word/_rels/document.xml.rels']
-    relationshiplist = []
-    for element in relationships.iter():
-        if element.tag.endswith('Relationship'):
-            target = element.attrib['Target']
-            type = element.attrib['Type']
-            relationshiplist.append([type,target])
+    relations = relationships.getchildren()
+    relationshiplist = len(relations) * [None]
+    for r in relations:
+        rId,type,target = r.values()
+        n = int(re.search('rId(\\d+)',rId).group(1))
+        relationshiplist[n-1] = [type,target]
     return relationshiplist
 
 def wordrelationships(relationshiplist):
