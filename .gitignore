@@ -237,3 +237,4 @@ lib/python2.6/types.pyo
 lib/python2.6/warnings.py
 lib/python2.6/warnings.pyo
 .DS_Store
+.project
