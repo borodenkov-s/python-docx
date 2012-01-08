@@ -5,16 +5,12 @@ from os.path import join
 import re
 import shutil
 from tempfile import NamedTemporaryFile
-import time
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from lxml import etree
-try:
-    from PIL import Image
-except ImportError:
-    import Image
     
 from utils import findTypeParent
+from metadata import nsprefixes
 
 log = logging.getLogger(__name__)
 
@@ -24,37 +20,6 @@ template_dir = join(os.path.dirname(__file__),'docx-template') # installed
 if not os.path.isdir(template_dir):
     template_dir = join(os.path.dirname(__file__),'template') # dev
 
-# All Word prefixes / namespace matches used in document.xml & core.xml.
-# LXML doesn't actually use prefixes (just the real namespace) , but these
-# make it easier to copy Word output more easily.
-nsprefixes = {
-    # Text Content
-    'mv':'urn:schemas-microsoft-com:mac:vml',
-    'mo':'http://schemas.microsoft.com/office/mac/office/2008/main',
-    've':'http://schemas.openxmlformats.org/markup-compatibility/2006',
-    'o':'urn:schemas-microsoft-com:office:office',
-    'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'm':'http://schemas.openxmlformats.org/officeDocument/2006/math',
-    'v':'urn:schemas-microsoft-com:vml',
-    'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
-    'w10':'urn:schemas-microsoft-com:office:word',
-    'wne':'http://schemas.microsoft.com/office/word/2006/wordml',
-    # Drawing
-    'wp':'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
-    'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
-    'pic':'http://schemas.openxmlformats.org/drawingml/2006/picture',
-    # Properties (core and extended)
-    'cp':"http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
-    'dc':"http://purl.org/dc/elements/1.1/",
-    'dcterms':"http://purl.org/dc/terms/",
-    'dcmitype':"http://purl.org/dc/dcmitype/",
-    'xsi':"http://www.w3.org/2001/XMLSchema-instance",
-    'ep':'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
-    # Content Types (we're just making up our own namespaces here to save time)
-    'ct':'http://schemas.openxmlformats.org/package/2006/content-types',
-    # Package Relationships (we're just making up our own namespaces here to save time)
-    'pr':'http://schemas.openxmlformats.org/package/2006/relationships'
-    }
     
 class Docx(object):
     trees_and_files = {
@@ -65,25 +30,27 @@ class Docx(object):
         "websettings":'word/webSettings.xml',
         "wordrelationships":'word/_rels/document.xml.rels'
     }
-    def __init__(self, file=None):
-        self._orig_docx = file
+    def __init__(self, f=None):
+        self._orig_docx = f
         self._tmp_file = NamedTemporaryFile()
         
         if file is None:
-            file = self.__generate_empty_docx()
+            f = self.__generate_empty_docx()
         
-        shutil.copyfile(file, self._tmp_file.name)
+        shutil.copyfile(f, self._tmp_file.name)
         self._docx = ZipFile(self._tmp_file.name, mode='a')
         
-        for tree, file in self.trees_and_files.items():
-            self._load_etree(tree, file)
+        for tree, f in self.trees_and_files.items():
+            self._load_etree(tree, f)
+            
+        self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
             
     def append(self, *args, **kwargs):
-        return self.document.append(*args, **kwargs)
+        return self.docbody.append(*args, **kwargs)
     
     def search(self, search):
         '''Search a document for a regex, return success / fail result'''
-        document = self.document
+        document = self.docbody
         
         result = False
         searchre = re.compile(search)
@@ -96,7 +63,7 @@ class Docx(object):
     
     def replace(self, search, replace):
         '''Replace all occurences of string with a different string, return updated document'''
-        newdocument = self.document
+        newdocument = self.docbody
         searchre = re.compile(search)
         for element in newdocument.iter():
             if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
@@ -165,7 +132,7 @@ class Docx(object):
         # Enables debug output
         DEBUG = False
     
-        newdocument = self.document
+        newdocument = self.docbody
     
         # Compile the search regexp
         searchre = re.compile(search)
@@ -303,7 +270,7 @@ class Docx(object):
     
         # Add & compress support files
         files_to_ignore = ['.DS_Store'] # nuisance from some os's
-        for dirpath,dirnames,filenames in os.walk('.'):
+        for dirpath, dirnames, filenames in os.walk('.'): #@UnusedVariable
             for filename in filenames:
                 if filename in files_to_ignore:
                     continue
@@ -320,8 +287,8 @@ class Docx(object):
     @property
     def text(self):
         '''Return the raw text of a document, as a list of paragraphs.'''
-        document = self.document
-        paratextlist=[]
+        document = self.docbody
+        paratextlist = []
         # Compile a list of all paragraph (p) elements
         paralist = []
         for element in document.iter():
@@ -342,152 +309,3 @@ class Docx(object):
             if not len(paratext) == 0:
                 paratextlist.append(paratext)
         return paratextlist
-
-"""
-def contenttypes():
-    # FIXME - doesn't quite work...read from string as temp hack...
-    #types = Element('Types',nsprefix='ct')
-    types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
-    parts = {
-        '/word/theme/theme1.xml':'application/vnd.openxmlformats-officedocument.theme+xml',
-        '/word/fontTable.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml',
-        '/docProps/core.xml':'application/vnd.openxmlformats-package.core-properties+xml',
-        '/docProps/app.xml':'application/vnd.openxmlformats-officedocument.extended-properties+xml',
-        '/word/document.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml',
-        '/word/settings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml',
-        '/word/numbering.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml',
-        '/word/styles.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml',
-        '/word/webSettings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml'
-        }
-    for part in parts:
-        types.append(Element('Override',nsprefix=None,attributes={'PartName':part,'ContentType':parts[part]}))
-    # Add support for filetypes
-    filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml','xml':'application/xml','jpeg':'image/jpeg','gif':'image/gif','png':'image/png'}
-    for extension in filetypes:
-        types.append(Element('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
-    return types
-    
-def coreproperties(title,subject,creator,keywords,lastmodifiedby=None):
-    '''Create core properties (common document properties referred to in the 'Dublin Core' specification).
-    See appproperties() for other stuff.'''
-    coreprops = Element('coreProperties',nsprefix='cp')
-    coreprops.append(Element('title',tagtext=title,nsprefix='dc'))
-    coreprops.append(Element('subject',tagtext=subject,nsprefix='dc'))
-    coreprops.append(Element('creator',tagtext=creator,nsprefix='dc'))
-    coreprops.append(Element('keywords',tagtext=','.join(keywords),nsprefix='cp'))
-    if not lastmodifiedby:
-        lastmodifiedby = creator
-    coreprops.append(Element('lastModifiedBy',tagtext=lastmodifiedby,nsprefix='cp'))
-    coreprops.append(Element('revision',tagtext='1',nsprefix='cp'))
-    coreprops.append(Element('category',tagtext='Examples',nsprefix='cp'))
-    coreprops.append(Element('description',tagtext='Examples',nsprefix='dc'))
-    currenttime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
-    # Document creation and modify times
-    # Prob here: we have an attribute who name uses one namespace, and that
-    # attribute's value uses another namespace.
-    # We're creating the lement from a string as a workaround...
-    for doctime in ['created','modified']:
-        coreprops.append(etree.fromstring('''<dcterms:'''+doctime+''' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">'''+currenttime+'''</dcterms:'''+doctime+'''>'''))
-        pass
-    return coreprops
-
-def appproperties():
-    '''Create app-specific properties. See docproperties() for more common document properties.'''
-    appprops = Element('Properties',nsprefix='ep')
-    appprops = etree.fromstring(
-    '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
-    props = {
-            'Template':'Normal.dotm',
-            'TotalTime':'6',
-            'Pages':'1',
-            'Words':'83',
-            'Characters':'475',
-            'Application':'Microsoft Word 12.0.0',
-            'DocSecurity':'0',
-            'Lines':'12',
-            'Paragraphs':'8',
-            'ScaleCrop':'false',
-            'LinksUpToDate':'false',
-            'CharactersWithSpaces':'583',
-            'SharedDoc':'false',
-            'HyperlinksChanged':'false',
-            'AppVersion':'12.0000',
-            }
-    for prop in props:
-        appprops.append(Element(prop,tagtext=props[prop],nsprefix=None))
-    return appprops
-
-
-def websettings():
-    '''Generate websettings'''
-    web = Element('webSettings')
-    web.append(Element('allowPNG'))
-    web.append(Element('doNotSaveAsSingleFile'))
-    return web
-
-def relationshiplist():
-    relationshiplist = [
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
-    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
-    ]
-    return relationshiplist
-
-def wordrelationships(relationshiplist):
-    '''Generate a Word relationships file'''
-    # Default list of relationships
-    # FIXME: using string hack instead of making element
-    #relationships = Element('Relationships',nsprefix='pr')
-    relationships = etree.fromstring(
-    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-        </Relationships>'''
-    )
-    count = 0
-    for relationship in relationshiplist:
-        # Relationship IDs (rId) start at 1.
-        relationships.append(Element('Relationship',attributes={'Id':'rId'+str(count+1),
-        'Type':relationship[0],'Target':relationship[1]},nsprefix=None))
-        count += 1
-    return relationships
-
-def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output):
-    '''Save a modified document'''
-    assert os.path.isdir(template_dir)
-    docxfile = ZipFile(output,mode='w',compression=ZIP_DEFLATED)
-
-    # Move to the template data path
-    prev_dir = os.path.abspath('.') # save previous working dir
-    os.chdir(template_dir)
-
-    # Serialize our trees into out zip file
-    treesandfiles = {document:'word/document.xml',
-                     coreprops:'docProps/core.xml',
-                     appprops:'docProps/app.xml',
-                     contenttypes:'[Content_Types].xml',
-                     websettings:'word/webSettings.xml',
-                     wordrelationships:'word/_rels/document.xml.rels'}
-    for tree in treesandfiles:
-        log.info('Saving: '+treesandfiles[tree]    )
-        treestring = etree.tostring(tree, pretty_print=True)
-        docxfile.writestr(treesandfiles[tree],treestring)
-
-    # Add & compress support files
-    files_to_ignore = ['.DS_Store'] # nuisance from some os's
-    for dirpath,dirnames,filenames in os.walk('.'):
-        for filename in filenames:
-            if filename in files_to_ignore:
-                continue
-            templatefile = join(dirpath,filename)
-            archivename = templatefile[2:]
-            log.info('Saving: %s', archivename)
-            docxfile.write(templatefile, archivename)
-    log.info('Saved new file to: %r', output)
-    docxfile.close()
-    os.chdir(prev_dir) # restore previous working dir
-    return
-"""
-

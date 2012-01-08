@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
+from os.path import join
+import shutil
+
+from lxml import etree
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+    
+from metadata import TEMPLATE_DIR, nsprefixes
 
 def Element(tagname, tagtext=None, nsprefix='w', attributes=None,attrnsprefix=None):
     '''Create an element & return it'''
@@ -35,21 +46,21 @@ def Element(tagname, tagtext=None, nsprefix='w', attributes=None,attrnsprefix=No
     return newelement
 
 
-def pagebreak(type='page', orient='portrait'):
+def pagebreak(breaktype='page', orient='portrait'):
     '''Insert a break, default 'page'.
     See http://openxmldeveloper.org/forums/thread/4075.aspx
     Return our page break element.'''
     # Need to enumerate different types of page breaks.
     validtypes = ['page', 'section']
-    if type not in validtypes:
-        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (type, validtypes))
+    if breaktype not in validtypes:
+        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (breaktype, validtypes))
     pagebreak = Element('p')
-    if type == 'page':
+    if breaktype == 'page':
         run = Element('r')
-        br = Element('br',attributes={'type':type})
+        br = Element('br',attributes={'type':breaktype})
         run.append(br)
         pagebreak.append(run)
-    elif type == 'section':
+    elif breaktype == 'section':
         pPr = Element('pPr')
         sectPr = Element('sectPr')
         if orient == 'portrait':
@@ -278,7 +289,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
+    media_dir = join(TEMPLATE_DIR,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
     shutil.copyfile(picname, join(media_dir,picname))
