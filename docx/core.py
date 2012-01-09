@@ -6,12 +6,12 @@ from os.path import join
 import re
 import shutil
 from tempfile import NamedTemporaryFile
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
 
 from lxml import etree
 import dateutil.parser
     
-from utils import findTypeParent
+from utils import findTypeParent, dir_to_docx
 from metadata import nsprefixes
 
 log = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ class Docx(object):
     
         return newdocument
     
-    def advReplace(self,search,replace,bs=3):
+    def advanced_replace(self, search, replace, max_blocks=3):
         '''Replace all occurences of string with a different string, return updated document
     
         This is a modified version of python-docx.replace() that takes into
@@ -150,7 +150,7 @@ class Docx(object):
         @param str       search: The text to search for (regexp)
         @param mixed replace: The replacement text or lxml.etree element to
                               append, or a list of etree elements
-        @param int       bs: See above
+        @param int       max_blocks: See above
     
         @return instance The document with replacement applied
     
@@ -164,7 +164,7 @@ class Docx(object):
         searchre = re.compile(search)
     
         # Will match against searchels. Searchels is a list that contains last
-        # n text elements found in the document. 1 < n < bs
+        # n text elements found in the document. 1 < n < max_blocks
         searchels = []
     
         for element in newdocument.iter():
@@ -172,7 +172,7 @@ class Docx(object):
                 if element.text:
                     # Add this element to searchels
                     searchels.append(element)
-                    if len(searchels) > bs:
+                    if len(searchels) > max_blocks:
                         # Is searchels is too long, remove first elements
                         searchels.pop(0)
     
@@ -258,7 +258,7 @@ class Docx(object):
         output = self.copy()
         for key, val in cx.items():
             key = "{{%s}}" % key
-            output.replace(key, val)
+            output.advanced_replace(key, val, max_blocks=8)
         return output
 
     def save(self, dest=None):
@@ -271,7 +271,6 @@ class Docx(object):
             docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
     
         log.info('Saved new file to: %r', dest)
-        docxfile.close()
         
         if dest is not None:
             shutil.copyfile(self._tmp_file.name, dest)
@@ -305,25 +304,7 @@ class Docx(object):
         self.__empty_docx = NamedTemporaryFile()
         loc = self.__empty_docx.name
         
-        docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
-
-        # Move to the template data path
-        prev_dir = os.path.abspath('.') # save previous working dir
-        os.chdir(template_dir)
-    
-        # Add & compress support files
-        files_to_ignore = ['.DS_Store'] # nuisance from some os's
-        for dirpath, dirnames, filenames in os.walk('.'): #@UnusedVariable
-            for filename in filenames:
-                if filename in files_to_ignore:
-                    continue
-                templatefile = join(dirpath,filename)
-                archivename = templatefile[2:]
-                log.info('Saving: %s', archivename)
-                docxfile.write(templatefile, archivename)
-        log.info('Saved new file to: %r', loc)
-        docxfile.close()
-        os.chdir(prev_dir) # restore previous working dir
+        dir_to_docx(template_dir, loc)
         
         return loc
     
