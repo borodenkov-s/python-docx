@@ -28,6 +28,8 @@ h4 = lambda txt: h_(4, txt)
 
 p = lambda txt: doc.append(elements.paragraph(txt))
 
+br = lambda **kwargs: doc.append(elements.pagebreak(**kwargs))
+
 def img(src, alt=""):
     raise NotImplementedError
     relationships, picpara = doc.picture(relationships, src, alt)
