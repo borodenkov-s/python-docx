@@ -271,6 +271,8 @@ class Docx(object):
             docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
     
         log.info('Saved new file to: %r', dest)
+        docxfile.close()
+        self._docx = ZipFile(self._tmp_file.name, mode='a')
         
         if dest is not None:
             shutil.copyfile(self._tmp_file.name, dest)
