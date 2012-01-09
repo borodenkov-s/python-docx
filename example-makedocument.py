@@ -7,73 +7,98 @@ If you need to make documents from scratch, use this file as a basis for your wo
 Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
-from docx import *
+from docx.dsl import *
 
 if __name__ == '__main__':        
-    # Default set of relationshipships - these are the minimum components of a document
-    relationships = relationshiplist()
-
-    # Make a new document tree - this is the main part of a Word document
-    document = newdocument()
-    
-    # This xpath location is where most interesting content lives 
-    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    # Make a new document
+    start_doc(meta={
+        'title': 'Python docx demo',
+        'subject': 'A practical example of making docx from Python',
+        'creator': 'Mike MacCana',
+        'keywords': ['python','Office Open XML','Word']
+    })
     
     # Append two headings and a paragraph
-    docbody.append(heading('''Welcome to Python's docx module''',1)  )   
-    docbody.append(heading('Make and edit docx in 200 lines of pure Python',2))
-    docbody.append(paragraph('The module was created when I was looking for a Python support for MS Word .doc files on PyPI and Stackoverflow. Unfortunately, the only solutions I could find used:'))
+    h1("Welcome to Python's docx module")   
+    h2('Make and edit docx in 200 lines of pure Python')
+    
+    p('The module was created when I was looking for a Python support for MS Word .doc files on PyPI and Stackoverflow. Unfortunately, the only solutions I could find used:')
 
     # Add a numbered list
-    for point in ['''COM automation''','''.net or Java''','''Automating OpenOffice or MS Office''']:
-        docbody.append(paragraph(point,style='ListNumber'))
-    docbody.append(paragraph('''For those of us who prefer something simpler, I made docx.''')) 
+    with ol() as li:
+        li('COM automation')
+        li('.net or Java')
+        li('Automating OpenOffice or MS Office')
+        
+    p('For those of us who prefer something simpler, I made docx.') 
     
-    docbody.append(heading('Making documents',2))
-    docbody.append(paragraph('''The docx module has the following features:'''))
+    h2('Making documents')
+    
+    p('The docx module has the following features:')
 
     # Add some bullets
-    for point in ['Paragraphs','Bullets','Numbered lists','Multiple levels of headings','Tables','Document Properties']:
-        docbody.append(paragraph(point,style='ListBullet'))
+    with ul() as li:
+        li("Paragraphs")
+        li("Bullets")
+        li("Numbered lists")
+        li('Multiple levels of headings')
+        li('Tables')
+        li('Document Properties')
 
-    docbody.append(paragraph('Tables are just lists of lists, like this:'))
+    p('Tables are just lists of lists, like this:')
+    
     # Append a table
-    docbody.append(table([['A1','A2','A3'],['B1','B2','B3'],['C1','C2','C3']]))
+    with table() as tr:
+        with tr() as td:
+            td("A1")
+            td("A2")
+            td("A3")
+        with tr() as td:
+            td("B1")
+            td("B2")
+            td("B3")
+        with tr() as td:
+            td("C1")
+            td("C2")
+            td("C3")
 
-    docbody.append(heading('Editing documents',2))
-    docbody.append(paragraph('Thanks to the awesomeness of the lxml module, we can:'))
-    for point in ['Search and replace','Extract plain text of document','Add and delete items anywhere within the document']:
-        docbody.append(paragraph(point,style='ListBullet'))
+    h2('Editing documents')
+    
+    p('Thanks to the awesomeness of the lxml module, we can:')
+    
+    with ul() as li:
+        li('Search and replace')
+        li('Extract plain text of document')
+        li('Add and delete items anywhere within the document')
         
+    """
     # Add an image
     relationships,picpara = picture(relationships,'image1.png','This is a test description')
     docbody.append(picpara)
- 
+    """
+    
     # Search and replace
     print 'Searching for something in a paragraph ...',
-    if search(docbody, 'the awesomeness'): print 'found it!'
-    else: print 'nope.'
-    
+    if doc.search('the awesomeness'): 
+        print 'found it!'
+    else: 
+        print 'nope.'
+
     print 'Searching for something in a heading ...',
-    if search(docbody, '200 lines'): print 'found it!'
-    else: print 'nope.'
+    if doc.search('200 lines'): 
+        print 'found it!'
+    else: 
+        print 'nope.'
     
     print 'Replacing ...',
-    docbody = replace(docbody,'the awesomeness','the goshdarned awesomeness') 
+    doc.replace('the awesomeness','the goshdarned awesomeness')
     print 'done.'
 
     # Add a pagebreak
-    docbody.append(pagebreak(type='page', orient='portrait'))
+    br()
 
-    docbody.append(heading('Ideas? Questions? Want to contribute?',2))
-    docbody.append(paragraph('''Email <python.docx@librelist.com>'''))
-
-    # Create our properties, contenttypes, and other support files
-    coreprops = coreproperties(title='Python docx demo',subject='A practical example of making docx from Python',creator='Mike MacCana',keywords=['python','Office Open XML','Word'])
-    appprops = appproperties()
-    contenttypes = contenttypes()
-    websettings = websettings()
-    wordrelationships = wordrelationships(relationships)
+    h2('Ideas? Questions? Want to contribute?')
+    p('Email <python.docx@librelist.com>')    
     
     # Save our document
-    savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,'Welcome to the Python docx module.docx')
+    write_docx('Welcome to the Python docx module.docx')
