@@ -8,6 +8,7 @@ from tempfile import NamedTemporaryFile
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from lxml import etree
+import dateutil.parser
     
 from utils import findTypeParent
 from metadata import nsprefixes
@@ -34,7 +35,7 @@ class Docx(object):
         self._orig_docx = f
         self._tmp_file = NamedTemporaryFile()
         
-        if file is None:
+        if f is None:
             f = self.__generate_empty_docx()
         
         shutil.copyfile(f, self._tmp_file.name)
@@ -44,6 +45,22 @@ class Docx(object):
             self._load_etree(tree, f)
             
         self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+        
+        # Make getters and setter for the core properties
+        def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
+            getter = lambda self: to_python(self._get_coreprop_val(prop))
+            setter = lambda self, val: to_str(self._set_coreprop_val(prop, val))
+            setattr(self, prop, property(getter, setter))
+            
+        for prop in ['title', 'subject', 'creator', 'description', 
+                     'lastModifiedBy', 'revision']:
+            set_coreprop_property(prop)
+            
+        for datetimeprop in ['created', 'modified']:
+            set_coreprop_property(datetimeprop, 
+                to_python=dateutil.parser.parse,
+                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+            )    
             
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
@@ -226,7 +243,14 @@ class Docx(object):
         return etree.fromstring(self._docx.read(xmldoc))
         
     def _load_etree(self, name, xmldoc):
-        setattr(name, xmldoc)
+        setattr(self, name, self._get_etree(xmldoc))
+
+    def template(self, cx):
+        output = self.copy()
+        for key, val in cx.items():
+            key = "{{%s}}" % key
+            output.replace(key, val)
+        return output
 
     def save(self, dest=None):
         docxfile = self._docx
@@ -234,13 +258,13 @@ class Docx(object):
         # Serialize our trees into our zip file
         for tree, dest_file in self.trees_and_files.items():
             log.info('Saving: ' + dest_file)
-            docxfile.writestr(dest_file, getattr(self, tree))
+            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
     
         log.info('Saved new file to: %r', dest)
         docxfile.close()
         
         if dest is not None:
-            shutil.copyfile(self._tmp_file, dest)
+            shutil.copyfile(self._tmp_file.name, dest)
             
     def copy(self):
         tmp = NamedTemporaryFile()
@@ -257,6 +281,15 @@ class Docx(object):
             pass
         self._docx.close()
         self._tmp_file.close()
+        
+    def _get_coreprop(self, tagname):
+        return self.coreprops.xpath("*[local-name()='title']")[0]
+    
+    def _get_coreprop_val(self, tagname):
+        return self._get_coreprop(tagname).text
+    
+    def _get_coreprof_val(self, tagname, val):
+        self._get_coreprop(tagname).text = val
         
     def __generate_empty_docx(self):
         self.__empty_docx = NamedTemporaryFile()
