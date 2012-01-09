@@ -30,6 +30,7 @@ p = lambda txt: doc.append(elements.paragraph(txt))
 
 def img(src, alt=""):
     raise NotImplementedError
+    relationships = None
     relationships, picpara = doc.picture(relationships, src, alt)
     doc.append(picpara)
 
