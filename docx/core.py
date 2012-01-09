@@ -65,7 +65,9 @@ class Docx(object):
         for datetimeprop in ['created', 'modified']:
             set_coreprop_property(datetimeprop, 
                 to_python=dateutil.parser.parse,
-                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+                to_str=lambda obj: (obj.isoformat() 
+                                    if hasattr(obj, 'isoformat') 
+                                    else dateutil.parser.parse(obj).isoformat())
             )
         return super(Docx, cls).__new__(cls, *args, **kwargs)
             
