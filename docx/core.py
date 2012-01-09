@@ -271,7 +271,9 @@ class Docx(object):
             docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
     
         log.info('Saved new file to: %r', dest)
+        # docx file doesn't save properly unless it gets closed 
         docxfile.close()
+        # reopen the file so it can continue to be used
         self._docx = ZipFile(self._tmp_file.name, mode='a')
         
         if dest is not None:
