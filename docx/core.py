@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import logging
 import os
 from os.path import join
@@ -32,10 +33,11 @@ class Docx(object):
         "wordrelationships":'word/_rels/document.xml.rels'
     }
     def __init__(self, f=None):
+        create_new_doc = f is None
         self._orig_docx = f
         self._tmp_file = NamedTemporaryFile()
         
-        if f is None:
+        if create_new_doc:
             f = self.__generate_empty_docx()
         
         shutil.copyfile(f, self._tmp_file.name)
@@ -46,11 +48,15 @@ class Docx(object):
             
         self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
         
+        if create_new_doc: 
+            self.created = datetime.utcnow()
+        
+    def __new__(cls, *args, **kwargs):
         # Make getters and setter for the core properties
         def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
             getter = lambda self: to_python(self._get_coreprop_val(prop))
-            setter = lambda self, val: to_str(self._set_coreprop_val(prop, val))
-            setattr(self, prop, property(getter, setter))
+            setter = lambda self, val: self._set_coreprop_val(prop, to_str(val))
+            setattr(cls, prop, property(getter, setter))
             
         for prop in ['title', 'subject', 'creator', 'description', 
                      'lastModifiedBy', 'revision']:
@@ -60,7 +66,8 @@ class Docx(object):
             set_coreprop_property(datetimeprop, 
                 to_python=dateutil.parser.parse,
                 to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
-            )    
+            )
+        return super(Docx, cls).__new__(cls, *args, **kwargs)
             
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
@@ -253,6 +260,7 @@ class Docx(object):
         return output
 
     def save(self, dest=None):
+        self.modified = datetime.utcnow()
         docxfile = self._docx
     
         # Serialize our trees into our zip file
@@ -288,7 +296,7 @@ class Docx(object):
     def _get_coreprop_val(self, tagname):
         return self._get_coreprop(tagname).text
     
-    def _get_coreprof_val(self, tagname, val):
+    def _set_coreprop_val(self, tagname, val):
         self._get_coreprop(tagname).text = val
         
     def __generate_empty_docx(self):
