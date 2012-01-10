@@ -258,26 +258,41 @@ class Docx(object):
         output = self.copy()
         for key, val in cx.items():
             key = "{{%s}}" % key
-            output.advanced_replace(key, val, max_blocks=8)
+            output.replace(key, unicode(val))
         return output
 
     def save(self, dest=None):
         self.modified = datetime.utcnow()
-        docxfile = self._docx
-    
+        
+        outf = NamedTemporaryFile()
+        out_zip = ZipFile(outf.name, mode='w')
+        
+        orig_contents = self._docx.namelist()
+        modified_contents = self.trees_and_files.values()
+        
         # Serialize our trees into our zip file
         for tree, dest_file in self.trees_and_files.items():
             log.info('Saving: ' + dest_file)
-            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
-    
-        log.info('Saved new file to: %r', dest)
-        # docx file doesn't save properly unless it gets closed 
-        docxfile.close()
-        # reopen the file so it can continue to be used
-        self._docx = ZipFile(self._tmp_file.name, mode='a')
+            out_zip.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
         
+        for dest_file in set(orig_contents) - set(modified_contents):
+            out_zip.writestr(dest_file, self._docx.read(dest_file))
+    
+        
+        # docx file doesn't save properly unless it gets closed
+        out_zip.close()
         if dest is not None:
-            shutil.copyfile(self._tmp_file.name, dest)
+            log.info('Saved new file to: %r', dest)
+            shutil.copyfile(outf.name, dest)
+            outf.close()
+        else:
+             
+            self._docx.close()
+            
+            shutil.copyfile(outf.name, self._tmp_file.name)
+            
+            # reopen the file so it can continue to be used
+            self._docx = ZipFile(self._tmp_file.name, mode='a')
             
     def copy(self):
         tmp = NamedTemporaryFile()
