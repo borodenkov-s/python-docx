@@ -254,11 +254,59 @@ class Docx(object):
     def _load_etree(self, name, xmldoc):
         setattr(self, name, self._get_etree(xmldoc))
 
-    def template(self, cx):
+    def template(self, cx, max_blocks=5, raw_document=False):
+        """
+        Accepts a context dictionary (cx) and looks for the dict keys wrapped 
+        in {{key}}. Replaces occurances with the correspoding value from the
+        cx dictionary.
+        
+        example:
+            with the context...
+                cx = {
+                    'name': 'James',
+                    'lang': 'English'
+                }
+            
+            ...and a docx file containing:
+                
+                Hi! My name is {{name}} and I speak {{lang}}
+                
+            Calling `docx.template(cx)` will return a new docx instance (the
+            original is not modified) that looks like:
+            
+                Hi! My name is James and I speak English
+                
+            Note: the template must not have spaces in the curly braces unless
+            the dict key does (i.e., `{{ name }}` will not work unless your
+            dictionary has `{" name ": ...}`)
+                
+        The `raw_document` argument accepts a boolean, which (if True) will 
+        treat the word/document.xml file as a text template (rather than only 
+        replacing text that is visible in the document via a word processor)
+        
+        If you pass `max_blocks=None` you will cause the template function to
+        use `docx.replace()` rather than `docx.advanced_replace()`.
+        
+        When `max_blocks` is a number, it is passed to the advanced replace
+        method as is.   
+        """
         output = self.copy()
+        
+        if raw_document:
+            raw_doc = etree.tostring(output.document)
+            
         for key, val in cx.items():
             key = "{{%s}}" % key
-            output.replace(key, unicode(val))
+            if raw_document:
+                raw_doc = raw_doc.replace(key, unicode(val))
+            elif max_blocks is None: 
+                output.replace(key, unicode(val))
+            else:                  
+                output.advanced_replace(key, val, max_blocks=max_blocks)
+            
+        if raw_document:
+            output.document = etree.parse(raw_doc)
+            
         return output
 
     def save(self, dest=None):
