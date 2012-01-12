@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='docx',
-    version='0.1.1',
+    version='0.1.2',
     requires=(
         'lxml', 
         'python_dateutil',
@@ -12,7 +12,7 @@ setup(
     author='Mike MacCana',
     author_email='python.docx@librelist.com',
     url='http://github.com/mikemaccana/python-docx',
-    py_modules=['docx'],
+    packages=['docx'],
     package_data={
         'docx': ['docx/template/*']
     },
