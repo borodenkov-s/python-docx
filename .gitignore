@@ -26,3 +26,5 @@ lib/
 .pydevproject
 */pip-log.txt
 docx.egg-info/
+
+dist/
