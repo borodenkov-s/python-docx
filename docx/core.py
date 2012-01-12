@@ -305,7 +305,7 @@ class Docx(object):
                 output.advanced_replace(key, val, max_blocks=max_blocks)
             
         if raw_document:
-            output.document = etree.parse(raw_doc)
+            output.document = etree.fromstring(raw_doc)
             
         return output
 
