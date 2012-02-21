@@ -11,7 +11,7 @@ setup(
     description='The docx module creates, reads and writes Microsoft Office Word 2007 docx files',
     author='Mike MacCana',
     author_email='python.docx@librelist.com',
-    url='http://github.com/mikemaccana/python-docx',
+    url='http://github.com/jiaaro/python-docx',
     packages=['docx'],
     package_data={
         'docx': ['docx/template/*']
