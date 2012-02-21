@@ -359,7 +359,10 @@ class Docx(object):
         self._tmp_file.close()
         
     def _get_coreprop(self, tagname):
-        return self.coreprops.xpath("*[local-name()='title']")[0]
+        try:
+            return self.coreprops.xpath("*[local-name()='%s']" % tagname)[0]
+        except IndexError:
+            return None
     
     def _get_coreprop_val(self, tagname):
         return self._get_coreprop(tagname).text
