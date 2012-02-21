@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='docx',
-    version='0.1.2',
+    version='0.1.3',
     requires=(
         'lxml', 
         'python_dateutil',
