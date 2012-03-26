@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
 Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
@@ -8,10 +8,7 @@ See LICENSE for licensing information.
 '''
 
 import logging
-try:
-    from xml.etree import ElementTree as etree
-except ImportError:
-    from lxml import etree
+from lxml import etree
 try:
     from PIL import Image
 except ImportError:
@@ -144,17 +141,15 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
 
-    If paratext is a list, spawn multiple run/text elements.
-    Support text styles (paratext must then be a list of lists in the form
-    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+    If paratext is a dict, spawn multiple run/text elements.
 
     example
-    paratext = [
-        ('some bold text', 'b'),
-        ('some normal text', ''),
-        ('some italic underlined text', 'iu'),
-    ]
 
+    paratext = [
+        ('some fancy text', {'bold': '', 'color': '0000FF', 'size': '36'}),
+        ('some bold text', {'bold': ''}),
+        ('some normal text', None),
+    ]
     '''
     # Make our elements
     paragraph = makeelement('p')
@@ -180,15 +175,25 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
         run = makeelement('r')
         rPr = makeelement('rPr')
         # Apply styles
-        if t[1].find('b') > -1:
+        styleDict = dict(t[1])
+        if styleDict.get("bold") != None:
             b = makeelement('b')
             rPr.append(b)
-        if t[1].find('u') > -1:
+        if styleDict.get("underline") != None:
             u = makeelement('u',attributes={'val':'single'})
             rPr.append(u)
-        if t[1].find('i') > -1:
+        if styleDict.get("italic") != None:
             i = makeelement('i')
             rPr.append(i)
+        if styleDict.get("color") != None:
+            color = makeelement('color', attributes={'val':styleDict.get("color")})
+            rPr.append(color)
+        if styleDict.get("size") != None:
+            sz = makeelement('sz', attributes={'val':str((int(styleDict.get("size"))*2))}) #note: text size must be multiplied by 2
+            rPr.append(sz)
+            szCs = makeelement('szCs', attributes={'val':str((int(styleDict.get("size"))*2))})
+            rPr.append(szCs)
+
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.

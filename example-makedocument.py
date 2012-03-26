@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/env python
 '''
 This file makes an docx (Office 2007) file from scratch, showing off most of python-docx's features.
 
@@ -61,6 +61,12 @@ if __name__ == '__main__':
     print 'Replacing ...',
     docbody = replace(docbody,'the awesomeness','the goshdarned awesomeness') 
     print 'done.'
+
+    paratext = [
+        ('\nBig blue text\n', {'bold': '', 'color': '0000FF', 'size': '18'}),
+        ('\nBold text\n', {'bold': ''})
+    ]
+    docbody.append(paragraph(paratext))
 
     # Add a pagebreak
     docbody.append(pagebreak(type='page', orient='portrait'))
