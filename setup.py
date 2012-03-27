@@ -10,7 +10,7 @@ for scheme in INSTALL_SCHEMES.values():
 
 setup(name='docx',
       version='0.0.2',
-      requires=['lxml'],
+      requires=['lxml', 'PIL'],
       description='The docx module creates, reads and writes Microsoft Office Word 2007 docx files',
       author='Mike MacCana',
       author_email='python.docx@librelist.com',
