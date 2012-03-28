@@ -69,7 +69,7 @@ if __name__ == '__main__':
     docbody.append( docx.paragraph( paratext ) )
 
     # Add a pagebreak
-    docbody.append( docx.pagebreak( type = 'page', orient = 'portrait' ) )
+    docbody.append( docx.pagebreak( typeOfBreak = 'page', orient = 'portrait' ) )
 
     docbody.append( docx.heading( 'Ideas? Questions? Want to contribute?', 2 ) )
     docbody.append( docx.paragraph( '''Email <python.docx@librelist.com>''' ) )

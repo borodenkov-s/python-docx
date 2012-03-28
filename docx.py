@@ -200,7 +200,12 @@ def paragraph( paratext, style = 'BodyText', breakbefore = False, jc = 'left' ):
         if breakbefore:
             lastRenderedPageBreak = makeelement( 'lastRenderedPageBreak' )
             run.append( lastRenderedPageBreak )
+
         run.append( t[0] )
+        if bool( styleDict.get( "break" ) ) == True:
+            br = makeelement( tagname = "br" )
+            run.append( br )
+
         paragraph.append( run )
     # Return the combined paragraph
     return paragraph
