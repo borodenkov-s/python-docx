@@ -182,19 +182,19 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
         rPr = makeelement('rPr')
         # Apply styles
         styleDict = dict(t[1])
-        if styleDict.get("bold") != None:
+        if styleDict.get("bold"):
             b = makeelement('b')
             rPr.append(b)
-        if styleDict.get("underline") != None:
+        if styleDict.get("underline"):
             u = makeelement('u', attributes={'val': 'single'})
             rPr.append(u)
-        if styleDict.get("italic") != None:
+        if styleDict.get("italic"):
             i = makeelement('i')
             rPr.append(i)
-        if styleDict.get("color") != None:
+        if styleDict.get("color"):
             color = makeelement('color', attributes={'val': styleDict.get("color")})
             rPr.append(color)
-        if styleDict.get("size") != None:
+        if styleDict.get("size"):
             sz = makeelement('sz', attributes={'val': str((int(styleDict.get("size")) * 2))})
             #note: text size must be multiplied by 2
             rPr.append(sz)
