@@ -77,18 +77,12 @@ def newdocument():
 
 def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None, attrnsprefix=None):
     '''Create an element & return it'''
-    # Deal with list of nsprefix by making namespacemap
-    namespacemap = None
-    if isinstance(nsprefix, list):
-        namespacemap = {}
-        for prefix in nsprefix:
-            namespacemap[prefix] = nsprefixes[prefix]
-        nsprefix = nsprefix[0]  # FIXME: rest of code below expects a single prefix
     if nsprefix:
         namespace = '{' + nsprefixes[nsprefix] + '}'
     else:
         # For when namespace = None
         namespace = ''
+    namespacemap = nsprefixes
     newelement = etree.Element(namespace + tagname, nsmap=namespacemap)
     # Add attributes with namespaces
     if attributes:
@@ -221,7 +215,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 def contenttypes():
     # FIXME - doesn't quite work...read from string as temp hack...
     #types = makeelement('Types',nsprefix='ct')
-    types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
+    types = etree.fromstring('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>')
     parts = {
         '/word/theme/theme1.xml': 'application/vnd.openxmlformats-officedocument.theme+xml',
         '/word/fontTable.xml': 'application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml',
@@ -236,9 +230,11 @@ def contenttypes():
     for part in parts:
         types.append(makeelement('Override', nsprefix=None, attributes={'PartName': part, 'ContentType': parts[part]}))
     # Add support for filetypes
-    filetypes = {'rels': 'application/vnd.openxmlformats-package.relationships+xml', 'xml': 'application/xml', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'png': 'image/png'}
+    filetypes = {'rels': 'application/vnd.openxmlformats-package.relationships+xml', 'xml': 'application/xml',
+                 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'png': 'image/png'}
     for extension in filetypes:
-        types.append(makeelement('Default', nsprefix=None, attributes={'Extension': extension, 'ContentType': filetypes[extension]}))
+        types.append(makeelement('Default', nsprefix=None, attributes={'Extension': extension,
+                                                                       'ContentType': filetypes[extension]}))
     return types
 
 
@@ -340,7 +336,8 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
             else:
                 wattr = {'w': '0', 'type': 'auto'}
             cellwidth = makeelement('tcW', attributes=wattr)
-            cellstyle = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': 'FFFFFF', 'themeFill': 'text2', 'themeFillTint': '99'})
+            cellstyle = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': 'FFFFFF',
+                                                       'themeFill': 'text2', 'themeFillTint': '99'})
             cellprops.append(cellwidth)
             cellprops.append(cellstyle)
             cell.append(cellprops)
@@ -717,12 +714,12 @@ def advReplace(document, search, replace, bs=3):
                                     log.debug("Search regexp: %s", searchre.pattern)
                                     log.debug("Requested replacement: %s", replace)
                                     log.debug("Matched text: %s", txtsearch)
-                                    log.debug("Matched text (splitted): %s", map(lambda i:i.text, searchels))
+                                    log.debug("Matched text (splitted): %s", map(lambda i: i.text, searchels))
                                     log.debug("Matched at position: %s", match.start())
                                     log.debug("matched in elements: %s", e)
                                     if isinstance(replace, etree._Element):
                                         log.debug("Will replace with XML CODE")
-                                    elif isinstance(replace (list, tuple)):
+                                    elif isinstance(replace(list, tuple)):
                                         log.debug("Will replace with LIST OF ELEMENTS")
                                     else:
                                         log.debug("Will replace with:", re.sub(search, replace, txtsearch))
@@ -736,7 +733,7 @@ def advReplace(document, search, replace, bs=3):
                                         # whole replaced text
                                         if isinstance(replace, etree._Element):
                                             # Convert to a list and process it later
-                                            replace = [ replace, ]
+                                            replace = [replace, ]
                                         if isinstance(replace, (list, tuple)):
                                             # I'm replacing with a list of etree elements
                                             # clear the text in the tag and append the element after the
@@ -757,6 +754,7 @@ def advReplace(document, search, replace, bs=3):
                                         # Clears the other text elements
                                         searchels[i].text = ''
     return newdocument
+
 
 def getdocumenttext(document):
     '''Return the raw text of a document, as a list of paragraphs.'''
@@ -782,6 +780,7 @@ def getdocumenttext(document):
             paratextlist.append(paratext)
     return paratextlist
 
+
 def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
     '''Create core properties (common document properties referred to in the 'Dublin Core' specification).
     See appproperties() for other stuff.'''
@@ -802,9 +801,12 @@ def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
     # attribute's value uses another namespace.
     # We're creating the lement from a string as a workaround...
     for doctime in ['created', 'modified']:
-        coreprops.append(etree.fromstring('''<dcterms:''' + doctime + ''' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">''' + currenttime + '''</dcterms:''' + doctime + '''>'''))
+        coreprops.append(etree.fromstring('<dcterms:' + doctime +
+                                           ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">'
+                                           + currenttime + '''</dcterms:''' + doctime + '''>'''))
         pass
     return coreprops
+
 
 def appproperties():
     '''Create app-specific properties. See docproperties() for more common document properties.'''
@@ -813,21 +815,21 @@ def appproperties():
     '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
     props = {
-            'Template':'Normal.dotm',
-            'TotalTime':'6',
-            'Pages':'1',
-            'Words':'83',
-            'Characters':'475',
-            'Application':'Microsoft Word 12.0.0',
-            'DocSecurity':'0',
-            'Lines':'12',
-            'Paragraphs':'8',
-            'ScaleCrop':'false',
-            'LinksUpToDate':'false',
-            'CharactersWithSpaces':'583',
-            'SharedDoc':'false',
-            'HyperlinksChanged':'false',
-            'AppVersion':'12.0000',
+            'Template': 'Normal.dotm',
+            'TotalTime': '6',
+            'Pages': '1',
+            'Words': '83',
+            'Characters': '475',
+            'Application': 'Microsoft Word 12.0.0',
+            'DocSecurity': '0',
+            'Lines': '12',
+            'Paragraphs': '8',
+            'ScaleCrop': 'false',
+            'LinksUpToDate': 'false',
+            'CharactersWithSpaces': '583',
+            'SharedDoc': 'false',
+            'HyperlinksChanged': 'false',
+            'AppVersion': '12.0000',
             }
     for prop in props:
         appprops.append(makeelement(prop, tagtext=props[prop], nsprefix=None))
@@ -841,6 +843,7 @@ def websettings():
     web.append(makeelement('doNotSaveAsSingleFile'))
     return web
 
+
 def relationshiplist():
     relationshiplist = [
     ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering', 'numbering.xml'],
@@ -851,6 +854,7 @@ def relationshiplist():
     ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme', 'theme/theme1.xml'],
     ]
     return relationshiplist
+
 
 def wordrelationships(relationshiplist):
     '''Generate a Word relationships file'''
@@ -864,10 +868,11 @@ def wordrelationships(relationshiplist):
     count = 0
     for relationship in relationshiplist:
         # Relationship IDs (rId) start at 1.
-        relationships.append(makeelement('Relationship', attributes={'Id':'rId' + str(count + 1),
-        'Type':relationship[0], 'Target':relationship[1]}, nsprefix=None))
+        relationships.append(makeelement('Relationship', attributes={'Id': 'rId' + str(count + 1),
+        'Type': relationship[0], 'Target': relationship[1]}, nsprefix=None))
         count += 1
     return relationships
+
 
 def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output):
     '''Save a modified document'''
@@ -875,23 +880,23 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
     # Move to the template data path
-    prev_dir = os.path.abspath('.') # save previous working dir
+    prev_dir = os.path.abspath('.')  # save previous working dir
     os.chdir(template_dir)
 
     # Serialize our trees into out zip file
-    treesandfiles = {document:'word/document.xml',
-                     coreprops:'docProps/core.xml',
-                     appprops:'docProps/app.xml',
-                     contenttypes:'[Content_Types].xml',
-                     websettings:'word/webSettings.xml',
-                     wordrelationships:'word/_rels/document.xml.rels'}
+    treesandfiles = {document: 'word/document.xml',
+                     coreprops: 'docProps/core.xml',
+                     appprops: 'docProps/app.xml',
+                     contenttypes: '[Content_Types].xml',
+                     websettings: 'word/webSettings.xml',
+                     wordrelationships: 'word/_rels/document.xml.rels'}
     for tree in treesandfiles:
         log.info('Saving: ' + treesandfiles[tree])
         treestring = etree.tostring(tree, pretty_print=True)
         docxfile.writestr(treesandfiles[tree], treestring)
 
     # Add & compress support files
-    files_to_ignore = ['.DS_Store'] # nuisance from some os's
+    files_to_ignore = ['.DS_Store']  # nuisance from some os's
     for dirpath, dummydirnames, filenames in os.walk('.'):
         for filename in filenames:
             if filename in files_to_ignore:
@@ -902,7 +907,5 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
             docxfile.write(templatefile, archivename)
     log.info('Saved new file to: %r', output)
     docxfile.close()
-    os.chdir(prev_dir) # restore previous working dir
+    os.chdir(prev_dir)  # restore previous working dir
     return
-
-
