@@ -60,6 +60,38 @@ nsprefixes = {
     'pr':'http://schemas.openxmlformats.org/package/2006/relationships'
     }
 
+
+class Document(object):
+    def __init__(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.template_dir = os.path.join(self.tmpdir, 'template')
+        shutil.copytree(template_dir, self.template_dir)
+        self.relationshiplist = relationshiplist()
+
+    @classmethod
+    def create(cls):
+        doc = cls()
+        doc.document = newdocument()
+        return doc
+
+    def pagebreak(self, *args, **kwargs):
+        return pagebreak(*args, **kwargs)
+
+    def paragraph(self, *args, **kwargs):
+        return paragraph(self, *args, **kwargs)
+
+    def table(self, *args, **kwargs):
+        return table(*args, **kwargs)
+
+    def picture(self, picname, *args, **kwargs):
+        self.relationshiplist, paragraph = picture(
+            self.relationship, picname, directory=self.template_dir, *args, **kwargs)
+        return paragraph
+        
+    def save(self, filename):
+        
+
+
 def opendocx(file):
     '''Open a docx file, return a document XML tree'''
     mydoc = zipfile.ZipFile(file)
@@ -365,14 +397,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     return table
 
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
-            pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+            pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
+            directory=template_dir):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
+    media_dir = join(directory,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
     shutil.copyfile(picname, join(media_dir,picname))
