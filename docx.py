@@ -147,29 +147,24 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
 
     example
     paratext = [
-        ('some bold text', {'style': 'b'}),
-        ('some normal text', {'style': ''}),
-        ('some italic underlined text', {'style': 'iu'}),
-        ('some bold text with color and font size', {'style': 'b', 
-                                                     'color': 'C00000', 
-                                                     'sz': '32'})
+        ('some bold text', 'b'),
+        ('some normal text', ''),
+        ('some italic underlined text', 'iu'),
     ]
 
     '''
     # Make our elements
     paragraph = makeelement('p')
 
-    if not isinstance(paratext, list):
-        paratext = [paratext]
-    text = []
-    for pt in paratext:
-        if not isinstance(pt, (list,tuple)):
-            pt = (pt, {})
-        lines = pt[0].split('\n')
-        for l in lines[:-1]:
-            text.append((makeelement('t',tagtext=l), pt[1], True))  # with line break
-        text.append((makeelement('t',tagtext=lines[-1]), pt[1], False))  # the last line, without line break        
-
+    if isinstance(paratext, list):
+        text = []
+        for pt in paratext:
+            if isinstance(pt, (list,tuple)):
+                text.append([makeelement('t',tagtext=pt[0]), pt[1]])
+            else:
+                text.append([makeelement('t',tagtext=pt), ''])
+    else:
+        text = [[makeelement('t',tagtext=paratext),''],]
     pPr = makeelement('pPr')
     pStyle = makeelement('pStyle',attributes={'val':style})
     pJc = makeelement('jc',attributes={'val':jc})
@@ -182,20 +177,15 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
         run = makeelement('r')
         rPr = makeelement('rPr')
         # Apply styles
-        if t[1].has_key('style'):
-            if t[1]['style'].find('b') > -1:
-                b = makeelement('b')
-                rPr.append(b)
-            if t[1]['style'].find('u') > -1:
-                u = makeelement('u',attributes={'val':'single'})
-                rPr.append(u)
-            if t[1]['style'].find('i') > -1:
-                i = makeelement('i')
-                rPr.append(i)
-        for pr_key in t[1]:
-            if not pr_key == 'style':
-                pr = makeelement(pr_key,attributes={'val': t[1][pr_key]})
-                rPr.append(pr)
+        if t[1].find('b') > -1:
+            b = makeelement('b')
+            rPr.append(b)
+        if t[1].find('u') > -1:
+            u = makeelement('u',attributes={'val':'single'})
+            rPr.append(u)
+        if t[1].find('i') > -1:
+            i = makeelement('i')
+            rPr.append(i)
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.
@@ -203,15 +193,11 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
             lastRenderedPageBreak = makeelement('lastRenderedPageBreak')
             run.append(lastRenderedPageBreak)
         run.append(t[0])
-        # Insert line break if there is multiple lines
-        if t[2]:
-            br = makeelement('br')
-            run.append(br)
         paragraph.append(run)
     # Return the combined paragraph
     return paragraph
 
-def getDefaultContentTypes():
+def contenttypes():
     # FIXME - doesn't quite work...read from string as temp hack...
     #types = makeelement('Types',nsprefix='ct')
     types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
@@ -233,16 +219,6 @@ def getDefaultContentTypes():
     for extension in filetypes:
         types.append(makeelement('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
     return types
-
-def getContentTypes(file):
-    '''Get Content Types file from a given Word document'''
-    if os.path.isfile(file):
-        mydoc = zipfile.ZipFile(file)
-        xmlcontent = mydoc.read('[Content_Types].xml')
-        types = etree.fromstring(xmlcontent)
-        return types
-    else:
-        return getDefaultContentTypes()
 
 def heading(headingtext,headinglevel,lang='en'):
     '''Make a new heading, return the heading element'''
@@ -415,8 +391,9 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Set relationship ID to the first available
     picid = '2'
     picrelid = 'rId'+str(len(relationshiplist)+1)
-    relationshiplist.append(makeelement('Relationship',attributes={'Id':'rId'+picrelid,
-        'Type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image','Target': 'media/'+picname},nsprefix=None))
+    relationshiplist.append([
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        'media/'+picname])
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
@@ -497,18 +474,6 @@ def search(document,search):
                     result = True
     return result
 
-def findElementByText(document,search):
-    '''Search a document for a regex, return the first matching text element'''
-    res_element = None
-    searchre = re.compile(search)
-    for element in document.iter():
-        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
-            if element.text:
-                if searchre.search(element.text):
-                    res_element = element
-                    return res_element
-    return res_element
-
 def replace(document,search,replace):
     '''Replace all occurences of string with a different string, return updated document'''
     newdocument = document
@@ -557,7 +522,7 @@ def findTypeParent(element, tag):
     # Not found
     return None
 
-def advSearch(document, search, bs=3):
+def AdvSearch(document, search, bs=3):
     '''Return set of all regex matches
 
     This is an advanced version of python-docx.search() that takes into
@@ -607,99 +572,34 @@ def advSearch(document, search, bs=3):
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
 
+                # Search all combinations, of searchels, starting from
+                # smaller up to bigger ones
+                # l = search lenght
+                # s = search start
+                # e = element IDs to merge
                 found = False
-                txtsearch = ''
-                for el in searchels:
-                    txtsearch += el.text
+                for l in range(1,len(searchels)+1):
+                    if found:
+                        break
+                    for s in range(len(searchels)):
+                        if found:
+                            break
+                        if s+l <= len(searchels):
+                            e = range(s,s+l)
+                            txtsearch = ''
+                            for k in e:
+                                txtsearch += searchels[k].text
 
-                # Searcs for the text in the whole txtsearch
-                match = searchre.search(txtsearch)
-                if match:
-                    # I've found something :)
-                    # The end of match must be in the last element
-                    # |----|---s|omet|hing|!---|
-                    # Now we need to find the element containing the start of the match
-                    # Search all combinations, of searchels, starting from
-                    # smaller up to bigger ones
-                    # s = search start
-                    # e = element IDs to merge
-                    els_len = len(searchels)
-                    for s in reversed(range(els_len)):
-                        txtsearch = ''
-                        e = range(s,els_len)
-                        for k in e:
-                            txtsearch += searchels[k].text
-                        match = searchre.search(txtsearch)
-                        if match:
-                            found = True
-                            matches.append(match.group())
-                    # Now we have found the start and ending element of the match
-                    # |  0 |  1 |  2 |  3 |  4 |
-                    # |----|---s|omet|hing|!---|
-                    # e = [1,2,3,4]
+                            # Searcs for the text in the whole txtsearch
+                            match = searchre.search(txtsearch)
+                            if match:
+                                matches.append(match.group())
+                                found = True
+
     return set(matches)
 
 
-def advFindElementByText(document, search, bs=3):
-    '''
-    This is an advanced version of python-docx.findElementByText() that takes into
-    account blocks of <bs> elements at a time.
 
-    @param instance  document: The original document
-    @param str       search: The text to search for (regexp)
-                          append, or a list of etree elements
-    @param int       bs: See above
-
-    @return list      The element set contains the search when combined
-    '''
-
-    # Compile the search regexp
-    searchre = re.compile(search)
-
-    # Will match against searchels. Searchels is a list that contains last
-    # n text elements found in the document. 1 < n < bs
-    searchels = []
-
-    for element in document.iter():
-        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
-            if element.text:
-                # Add this element to searchels
-                searchels.append(element)
-                if len(searchels) > bs:
-                    # Is searchels is too long, remove first elements
-                    searchels.pop(0)
-
-                found = False
-                txtsearch = ''
-                for el in searchels:
-                    txtsearch += el.text
-
-                # Searcs for the text in the whole txtsearch
-                match = searchre.search(txtsearch)
-                if match:
-                    # I've found something :)
-                    # The end of match must be in the last element
-                    # |----|---s|omet|hing|!---|
-                    # Now we need to find the element containing the start of the match
-                    # Search all combinations, of searchels, starting from
-                    # smaller up to bigger ones
-                    # s = search start
-                    # e = element IDs to merge
-                    els_len = len(searchels)
-                    for s in reversed(range(els_len)):
-                        txtsearch = ''
-                        e = range(s,els_len)
-                        for k in e:
-                            txtsearch += searchels[k].text
-                        match = searchre.search(txtsearch)
-                        if match:
-                            found = True
-                            return searchels[s:]
-                    # Now we have found the start and ending element of the match
-                    # |  0 |  1 |  2 |  3 |  4 |
-                    # |----|---s|omet|hing|!---|
-                    # e = [1,2,3,4]
-    return None
 
 
 def advReplace(document,search,replace,bs=3):
@@ -761,80 +661,76 @@ def advReplace(document,search,replace,bs=3):
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
 
+                # Search all combinations, of searchels, starting from
+                # smaller up to bigger ones
+                # l = search lenght
+                # s = search start
+                # e = element IDs to merge
                 found = False
-                txtsearch = ''
-                for el in searchels:
-                    txtsearch += el.text
-
-                # Searcs for the text in the whole txtsearch
-                match = searchre.search(txtsearch)
-                if match:
-                    # I've found something :)
-                    # The end of match must be in the last element
-                    # |----|---s|omet|hing|!---|
-                    # Now we need to find the element containing the start of the match
-                    # Search all combinations, of searchels, starting from
-                    # smaller up to bigger ones
-                    # s = search start
-                    # e = element IDs to merge
-                    els_len = len(searchels)
-                    for s in reversed(range(els_len)):
-                        txtsearch = ''
-                        e = range(s,els_len)
-                        for k in e:
-                            txtsearch += searchels[k].text
-                        match = searchre.search(txtsearch)
-                        if match:
-                            found = True
+                for l in range(1,len(searchels)+1):
+                    if found:
+                        break
+                    #print "slen:", l
+                    for s in range(len(searchels)):
+                        if found:
                             break
-                    # Now we have found the start and ending element of the match
-                    # |  0 |  1 |  2 |  3 |  4 |
-                    # |----|---s|omet|hing|!---|
-                    # e = [1,2,3,4]
-                    if DEBUG:
-                        log.debug("Found element!")
-                        log.debug("Search regexp: %s", searchre.pattern)
-                        log.debug("Requested replacement: %s", replace)
-                        log.debug("Matched text: %s", txtsearch)
-                        log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
-                        log.debug("Matched at position: %s", match.start())
-                        log.debug( "matched in elements: %s", e)
-                        if isinstance(replace, etree._Element):
-                            log.debug("Will replace with XML CODE")
-                        elif isinstance(replace (list, tuple)):
-                            log.debug("Will replace with LIST OF ELEMENTS")
-                        else:
-                            log.debug("Will replace with:", re.sub(search,replace,txtsearch))
+                        if s+l <= len(searchels):
+                            e = range(s,s+l)
+                            #print "elems:", e
+                            txtsearch = ''
+                            for k in e:
+                                txtsearch += searchels[k].text
 
-                    curlen = 0
-                    replaced = False
-                    for i in e:
-                        curlen += len(searchels[i].text)
-                        if curlen > match.start() and not replaced:
-                            # The match occurred in THIS element. Puth in the
-                            # whole replaced text
-                            if isinstance(replace, etree._Element):
-                                # Convert to a list and process it later
-                                replace = [ replace, ]
-                            if isinstance(replace, (list,tuple)):
-                                # I'm replacing with a list of etree elements
-                                # clear the text in the tag and append the element after the
-                                # parent paragraph
-                                # (because t elements cannot have childs)
-                                p = findTypeParent(searchels[i], '{%s}p' % nsprefixes['w'])
-                                searchels[i].text = re.sub(search,'',txtsearch)
-                                insindex = p.getparent().index(p) + 1
-                                for r in replace:
-                                    p.getparent().insert(insindex, r)
-                                    insindex += 1
-                            else:
-                                # Replacing with pure text
-                                searchels[i].text = re.sub(search,replace,txtsearch)
-                            replaced = True
-                            log.debug("Replacing in element #: %s", i)
-                        else:
-                            # Clears the other text elements
-                            searchels[i].text = ''
+                            # Searcs for the text in the whole txtsearch
+                            match = searchre.search(txtsearch)
+                            if match:
+                                found = True
+
+                                # I've found something :)
+                                if DEBUG:
+                                    log.debug("Found element!")
+                                    log.debug("Search regexp: %s", searchre.pattern)
+                                    log.debug("Requested replacement: %s", replace)
+                                    log.debug("Matched text: %s", txtsearch)
+                                    log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                                    log.debug("Matched at position: %s", match.start())
+                                    log.debug( "matched in elements: %s", e)
+                                    if isinstance(replace, etree._Element):
+                                        log.debug("Will replace with XML CODE")
+                                    elif isinstance(replace (list, tuple)):
+                                        log.debug("Will replace with LIST OF ELEMENTS")
+                                    else:
+                                        log.debug("Will replace with:", re.sub(search,replace,txtsearch))
+
+                                curlen = 0
+                                replaced = False
+                                for i in e:
+                                    curlen += len(searchels[i].text)
+                                    if curlen > match.start() and not replaced:
+                                        # The match occurred in THIS element. Puth in the
+                                        # whole replaced text
+                                        if isinstance(replace, etree._Element):
+                                            # Convert to a list and process it later
+                                            replace = [ replace, ]
+                                        if isinstance(replace, (list,tuple)):
+                                            # I'm replacing with a list of etree elements
+                                            # clear the text in the tag and append the element after the
+                                            # parent paragraph
+                                            # (because t elements cannot have childs)
+                                            p = findTypeParent(searchels[i], '{%s}p' % nsprefixes['w'])
+                                            searchels[i].text = re.sub(search,'',txtsearch)
+                                            insindex = p.getparent().index(p) + 1
+                                            for r in replace:
+                                                p.getparent().insert(insindex, r)
+                                                insindex += 1
+                                        else:
+                                            # Replacing with pure text
+                                            searchels[i].text = re.sub(search,replace,txtsearch)
+                                        replaced = True
+                                        log.debug("Replacing in element #: %s", i)
+                                    else:
+                                        # Clears the other text elements
+                                        searchels[i].text = ''
     return newdocument
 
 def getdocumenttext(document):
@@ -914,6 +810,7 @@ def appproperties():
         appprops.append(makeelement(prop,tagtext=props[prop],nsprefix=None))
     return appprops
 
+
 def websettings():
     '''Generate websettings'''
     web = makeelement('webSettings')
@@ -921,17 +818,22 @@ def websettings():
     web.append(makeelement('doNotSaveAsSingleFile'))
     return web
 
-def getDefaultRelationships():
-    '''Generate a default Word relationships file'''
-    # Default list of relationships
+def relationshiplist():
     relationshiplist = [
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
-        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
     ]
+    return relationshiplist
+
+def wordrelationships(relationshiplist):
+    '''Generate a Word relationships file'''
+    # Default list of relationships
+    # FIXME: using string hack instead of making element
+    #relationships = makeelement('Relationships',nsprefix='pr')
     relationships = etree.fromstring(
     '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         </Relationships>'''
@@ -943,16 +845,6 @@ def getDefaultRelationships():
         'Type':relationship[0],'Target':relationship[1]},nsprefix=None))
         count += 1
     return relationships
-
-def getRelationships(file):
-    '''Get a Word relationships file from a given Word document'''
-    if os.path.isfile(file):
-        mydoc = zipfile.ZipFile(file)
-        xmlcontent = mydoc.read('word/_rels/document.xml.rels')
-        relationships = etree.fromstring(xmlcontent)
-        return relationships
-    else:
-        return getDefaultRelationships()
 
 def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output):
     '''Save a modified document'''
