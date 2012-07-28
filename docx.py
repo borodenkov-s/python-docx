@@ -19,6 +19,7 @@ import re
 import time
 import os
 from os.path import join
+import copy
 
 log = logging.getLogger(__name__)
 
@@ -706,8 +707,8 @@ def advReplace(document,search,replace,bs=3):
     '''Replace all occurences of string with a different string, return updated document
 
     This is a modified version of python-docx.replace() that takes into
-    account blocks of <bs> elements at a time. The replace element can also
-    be a string or an xml etree element.
+    account blocks of <bs> elements at a time. The replace element can only
+    be a string currently. (There is some bug with element replacing)
 
     What it does:
     It searches the entire document body for text blocks.
@@ -806,35 +807,96 @@ def advReplace(document,search,replace,bs=3):
                         else:
                             log.debug("Will replace with:", re.sub(search,replace,txtsearch))
 
-                    curlen = 0
-                    replaced = False
-                    for i in e:
-                        curlen += len(searchels[i].text)
-                        if curlen > match.start() and not replaced:
-                            # The match occurred in THIS element. Puth in the
-                            # whole replaced text
-                            if isinstance(replace, etree._Element):
-                                # Convert to a list and process it later
-                                replace = [ replace, ]
-                            if isinstance(replace, (list,tuple)):
-                                # I'm replacing with a list of etree elements
-                                # clear the text in the tag and append the element after the
-                                # parent paragraph
-                                # (because t elements cannot have childs)
-                                p = findTypeParent(searchels[i], '{%s}p' % nsprefixes['w'])
-                                searchels[i].text = re.sub(search,'',txtsearch)
-                                insindex = p.getparent().index(p) + 1
-                                for r in replace:
-                                    p.getparent().insert(insindex, r)
-                                    insindex += 1
-                            else:
-                                # Replacing with pure text
-                                searchels[i].text = re.sub(search,replace,txtsearch)
-                            replaced = True
-                            log.debug("Replacing in element #: %s", i)
-                        else:
-                            # Clears the other text elements
+                    try:
+                        # for text, we want to replace at <w:r> level
+                        # because there will be new lines
+                        # <w:p>
+                        #     <w:pPr></w:pPr>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[PREFIX]</w:t>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[REPLACE_LINE_1]</w:t>
+                        #         <w:br/>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[REPLACE_LINE_2]</w:t>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[SUFIX]</w:t>
+                        #     </w:r>
+                        # </w:p>
+                        txt_prefix = txtsearch[:match.start()]
+                        txt_sufix = txtsearch[match.end():]
+                        if not isinstance(replace, (list, tuple)):
+                            replace = [replace]
+                        # get the first matching <w:r> element and copy it
+                        # because we want to keep its property <w:rPr> for the replaced content
+                        org_first_r = findTypeParent(searchels[e[0]], '{%s}r' % nsprefixes['w'])
+                        first_r = copy.deepcopy(org_first_r)
+                        # and remove <w:br> if there is any
+                        # because these <w:br>s will be added accordingly later
+                        el_to_delete = first_r.find('{%s}br' % nsprefixes['w'])
+                        if not el_to_delete == None:
+                            first_r.remove(el_to_delete)
+                        template_r = copy.deepcopy(first_r)
+                        # empty the text
+                        el_to_delete = template_r.find('{%s}t' % nsprefixes['w'])
+                        if not el_to_delete == None:
+                            template_r.remove(el_to_delete)
+                        p =  org_first_r.getparent()
+                        insindex = p.index(org_first_r)
+
+                        # insert the prefix
+                        p.insert(insindex, first_r)
+                        insindex += 1
+                        first_r.find('{%s}t' % nsprefixes['w']).text = txt_prefix
+                        # insert the runs to replace
+                        for r in replace:
+                            if isinstance(r, etree._Element):
+                                # TODO: there was some bug in element replacement
+                                # delete the function currently
+                                # but replacing some text with some picture is really useful
+                                # will add element replacing later
+                                continue
+                            lines = r.split('\n')
+                            for line in lines[:-1]:
+                                new_r = copy.deepcopy(template_r)
+                                new_r.append(makeelement('t',tagtext=line))
+                                new_r.append(makeelement('br'))
+                                p.insert(insindex, new_r)
+                                insindex += 1
+                            # the last line of the segment
+                            new_r = copy.deepcopy(template_r)
+                            new_r.append(makeelement('t',tagtext=lines[-1]))
+                            p.insert(insindex, new_r)
+                            insindex += 1
+                        # copy the last matching <w:r> element
+                        # because it may be the same as the first <w:r> element
+                        last_r = copy.deepcopy(findTypeParent(searchels[e[-1]], '{%s}r' % nsprefixes['w']))
+                        p.insert(insindex, last_r)
+                        insindex += 1
+                        last_r.find('{%s}t' % nsprefixes['w']).text = txt_sufix
+
+                        # there may be 1 matching element, or multiple elements combined
+                        # anyway, remove them all since we have safely copied the prefix
+                        # and sufix and inserted replace in between
+                        for i in e:
+                            # maybe the element cannot be removed
+                            # so, anyway, empty them first in case I cannot remove them
                             searchels[i].text = ''
+                            try:
+                                p.remove(findTypeParent(searchels[i], '{%s}r' % nsprefixes['w']))
+                            except Exception, e:
+                                log.exception(e)
+
+                        return newdocument
+                    except Extension, e:
+                        log.exception(e)
     return newdocument
 
 def getdocumenttext(document):
