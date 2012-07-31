@@ -171,7 +171,7 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
     pPr.append(pStyle)
     pPr.append(pJc)
 
-    # Add the text the run, and the run to the paragraph
+    # Add the text to the run, and the run to the paragraph
     paragraph.append(pPr)
     for t in text:
         run = makeelement('r')
@@ -240,14 +240,17 @@ def heading(headingtext,headinglevel,lang='en'):
     # Return the combined paragraph
     return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
                               Every item in the list can be a string or a valid
                               XML element itself. It can also be a list. In that case
                               all the listed elements will be merged into the cell.
-        @param bool heading: Tells whether first line should be threated as heading
+        @param string tblstyle: Specifies name of table style to override default if desired
+        @param string tbllook: Specifies which elements of table style to to apply to this table,
+                               e.g. {'firstColumn':'false', 'firstRow':'true'}, etc.
+        @param bool heading: Tells whether first line should be treated as heading
                              or not
         @param list colw: A list of interger. The list must have same element
                           count of content lines. Specify column Widths in
@@ -277,7 +280,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     columns = len(contents[0])
     # Table properties
     tableprops = makeelement('tblPr')
-    tablestyle = makeelement('tblStyle',attributes={'val':''})
+    tablestyle = makeelement('tblStyle',attributes={'val':tblstyle if tblstyle else ''})
     tableprops.append(tablestyle)
     tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
     tableprops.append(tablewidth)
@@ -292,7 +295,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                 borderelem = makeelement(b,attributes=attrs)
                 tableborders.append(borderelem)
         tableprops.append(tableborders)
-    tablelook = makeelement('tblLook',attributes={'val':'0400'})
+    tablelook = makeelement('tblLook',attributes=tbllook)
     tableprops.append(tablelook)
     table.append(tableprops)
     # Table Grid
@@ -597,9 +600,6 @@ def AdvSearch(document, search, bs=3):
                                 found = True
 
     return set(matches)
-
-
-
 
 
 def advReplace(document,search,replace,bs=3):
