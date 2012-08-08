@@ -7,6 +7,7 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 
+from copy import deepcopy
 import logging
 from lxml import etree
 try:
@@ -15,19 +16,21 @@ except ImportError:
     import Image
 import zipfile
 import shutil
+from distutils import dir_util
 import re
 import time
 import os
 from os.path import join
-import copy
 
 log = logging.getLogger(__name__)
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
-template_dir = join(os.path.dirname(__file__),'docx-template') # installed
-if not os.path.isdir(template_dir):
-    template_dir = join(os.path.dirname(__file__),'template') # dev
+TEMPLATE_DIR = join(os.path.dirname(__file__), 'docx-template') # installed
+if not os.path.isdir(TEMPLATE_DIR):
+    TEMPLATE_DIR = join(os.path.dirname(__file__), 'template') # dev
+
+TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
 
 # All Word prefixes / namespace matches used in document.xml & core.xml.
 # LXML doesn't actually use prefixes (just the real namespace) , but these
@@ -69,9 +72,22 @@ def opendocx(file):
     return document
 
 def newdocument():
+    build_temp_template_layout()
+
     document = makeelement('document')
     document.append(makeelement('body'))
     return document
+
+def build_temp_template_layout():
+    clear_temp_template_layout()
+    dir_util.copy_tree(TEMPLATE_DIR, TEMP_TEMPLATE_DIR)
+
+def clear_temp_template_layout():
+    if os.path.exists(TEMP_TEMPLATE_DIR):
+        if os.path.isdir(TEMP_TEMPLATE_DIR):
+            shutil.rmtree(TEMP_TEMPLATE_DIR)
+        else:
+            os.remove(TEMP_TEMPLATE_DIR)
 
 def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
     '''Create an element & return it'''
@@ -133,7 +149,7 @@ def pagebreak(type='page', orient='portrait'):
         pagebreak.append(pPr)
     return pagebreak
 
-def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -144,7 +160,7 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
 
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
-    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+    <text> / <style>. Style is a string containing a combination of 'bui' chars
 
     example
     paratext = [
@@ -235,9 +251,9 @@ def getDefaultContentTypes():
         types.append(makeelement('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
     return types
 
-def getContentTypes(file):
+def getContentTypes(file=None):
     '''Get Content Types file from a given Word document'''
-    if os.path.isfile(file):
+    if file and os.path.isfile(file):
         mydoc = zipfile.ZipFile(file)
         xmlcontent = mydoc.read('[Content_Types].xml')
         types = etree.fromstring(xmlcontent)
@@ -265,7 +281,7 @@ def heading(headingtext,headinglevel,lang='en'):
     # Return the combined paragraph
     return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, rowstyle=None, table_props=None):
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
@@ -304,6 +320,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     tableprops = makeelement('tblPr')
     tablestyle = makeelement('tblStyle',attributes={'val':''})
     tableprops.append(tablestyle)
+    if not table_props:
+        table_props = {}
+    for k, attr in table_props.iteritems():
+        if isinstance(attr, etree._Element):        
+            tableprops.append(attr)            
+        else:
+            prop = makeelement(k, attributes=attr)
+            tableprops.append(prop)
+            
     tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
     tableprops.append(tablewidth)
     if len(borders.keys()):
@@ -360,8 +385,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     # Contents Rows
     for contentrow in contents[1 if heading else 0:]:
         row = makeelement('tr')
+        if rowstyle:
+            rowprops = makeelement('trPr')
+            if 'height' in rowstyle:
+                rowHeight = makeelement('trHeight', attributes={'val': str(rowstyle['height']),
+                                                                'hRule': 'exact'})
+            rowprops.append(rowHeight)
+            row.append(rowprops)
         i = 0
-        for content in contentrow:
+        for content_cell in contentrow:
             cell = makeelement('tc')
             # Properties
             cellprops = makeelement('tcPr')
@@ -369,37 +401,54 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                 wattr = {'w':str(colw[i]),'type':cwunit}
             else:
                 wattr = {'w':'0','type':'auto'}
-            cellwidth = makeelement('tcW',attributes=wattr)
+            cellwidth = makeelement('tcW', attributes=wattr)
             cellprops.append(cellwidth)
+            align = 'left'
+            cell_spec_style = {}
+            if celstyle:
+                cell_spec_style = deepcopy(celstyle[i])
+            if isinstance(content_cell, dict):
+                cell_spec_style.update(content_cell['style'])                
+                content_cell = content_cell['content']
+            # spec. align property
+            SPEC_PROPS = ['align',]
+            if 'align' in cell_spec_style:
+                align = celstyle[i]['align']
+            # any property for cell, by OOXML specification
+            for cs, attrs in cell_spec_style.iteritems():
+                if cs in SPEC_PROPS:
+                    continue
+                cell_prop = makeelement(cs, attributes=attrs)
+                cellprops.append(cell_prop)
             cell.append(cellprops)
             # Paragraph (Content)
-            if not isinstance(content, (list, tuple)):
-                content = [content,]
-            for c in content:
+            if not isinstance(content_cell, (list, tuple)):
+                content_cell = [content_cell,]
+            for c in content_cell:
+                # cell.append(cellprops)
                 if isinstance(c, etree._Element):
                     cell.append(c)
                 else:
-                    if celstyle and 'align' in celstyle[i].keys():
-                        align = celstyle[i]['align']
-                    else:
-                        align = 'left'
-                    cell.append(paragraph(c,jc=align))
+                    cell.append(paragraph(c, jc=align))
             row.append(cell)
             i += 1
         table.append(row)
     return table
 
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
-            pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+            pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
+            template_dir=None):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
-    media_dir = join(template_dir,'word','media')
+    if not template_dir:
+        template_dir = TEMP_TEMPLATE_DIR
+    media_dir = join(template_dir, 'word', 'media')
     if not os.path.isdir(media_dir):
-        os.mkdir(media_dir)
+        os.makedirs(media_dir)
     shutil.copyfile(picname, join(media_dir,picname))
 
     # Check if the user has specified a size
@@ -416,8 +465,9 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Set relationship ID to the first available
     picid = '2'
     picrelid = 'rId'+str(len(relationshiplist)+1)
-    relationshiplist.append(makeelement('Relationship',attributes={'Id':'rId'+picrelid,
-        'Type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image','Target': 'media/'+picname},nsprefix=None))
+    relationshiplist.append(makeelement('Relationship',attributes={'Id': picrelid,
+        'Type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        'Target': 'media/'+picname},nsprefix=None))
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
@@ -837,13 +887,13 @@ def advReplace(document,search,replace,bs=3):
                         # get the first matching <w:r> element and copy it
                         # because we want to keep its property <w:rPr> for the replaced content
                         org_first_r = findTypeParent(searchels[e[0]], '{%s}r' % nsprefixes['w'])
-                        first_r = copy.deepcopy(org_first_r)
+                        first_r = deepcopy(org_first_r)
                         # and remove <w:br> if there is any
                         # because these <w:br>s will be added accordingly later
                         el_to_delete = first_r.find('{%s}br' % nsprefixes['w'])
                         if not el_to_delete == None:
                             first_r.remove(el_to_delete)
-                        template_r = copy.deepcopy(first_r)
+                        template_r = deepcopy(first_r)
                         # empty the text
                         el_to_delete = template_r.find('{%s}t' % nsprefixes['w'])
                         if not el_to_delete == None:
@@ -865,19 +915,19 @@ def advReplace(document,search,replace,bs=3):
                                 continue
                             lines = r.split('\n')
                             for line in lines[:-1]:
-                                new_r = copy.deepcopy(template_r)
+                                new_r = deepcopy(template_r)
                                 new_r.append(makeelement('t',tagtext=line))
                                 new_r.append(makeelement('br'))
                                 p.insert(insindex, new_r)
                                 insindex += 1
                             # the last line of the segment
-                            new_r = copy.deepcopy(template_r)
+                            new_r = deepcopy(template_r)
                             new_r.append(makeelement('t',tagtext=lines[-1]))
                             p.insert(insindex, new_r)
                             insindex += 1
                         # copy the last matching <w:r> element
                         # because it may be the same as the first <w:r> element
-                        last_r = copy.deepcopy(findTypeParent(searchels[e[-1]], '{%s}r' % nsprefixes['w']))
+                        last_r = deepcopy(findTypeParent(searchels[e[-1]], '{%s}r' % nsprefixes['w']))
                         p.insert(insindex, last_r)
                         insindex += 1
                         last_r.find('{%s}t' % nsprefixes['w']).text = txt_sufix
@@ -1006,9 +1056,9 @@ def getDefaultRelationships():
         count += 1
     return relationships
 
-def getRelationships(file):
+def getRelationships(file=None):
     '''Get a Word relationships file from a given Word document'''
-    if os.path.isfile(file):
+    if file and os.path.isfile(file):
         mydoc = zipfile.ZipFile(file)
         xmlcontent = mydoc.read('word/_rels/document.xml.rels')
         relationships = etree.fromstring(xmlcontent)
@@ -1016,9 +1066,13 @@ def getRelationships(file):
     else:
         return getDefaultRelationships()
 
-def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output):
+def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output,
+             template_dir=None):
     '''Save a modified document'''
+    if not template_dir:
+        template_dir = TEMP_TEMPLATE_DIR
     assert os.path.isdir(template_dir)
+
     docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
 
     # Move to the template data path
@@ -1043,7 +1097,7 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
         for filename in filenames:
             if filename in files_to_ignore:
                 continue
-            templatefile = join(dirpath,filename)
+            templatefile = join(dirpath, filename)
             archivename = templatefile[2:]
             log.info('Saving: %s', archivename)
             docxfile.write(templatefile, archivename)
@@ -1051,5 +1105,3 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
     docxfile.close()
     os.chdir(prev_dir) # restore previous working dir
     return
-
-
