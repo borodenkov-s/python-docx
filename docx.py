@@ -67,6 +67,17 @@ def opendocx(file):
     document = etree.fromstring(xmlcontent)
     return document
 
+def opendocxheader(file):
+    '''Open a docx file, return the header XML tree'''
+    mydoc = zipfile.ZipFile(file)
+    try:
+        xmlcontent = mydoc.read('word/header2.xml')
+    except :
+        xmlcontent = mydoc.read('word/header1.xml')
+        
+    header = etree.fromstring(xmlcontent)
+    return header
+
 def newdocument():
     document = makeelement('document')
     document.append(makeelement('body'))
