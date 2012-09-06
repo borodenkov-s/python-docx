@@ -8,8 +8,24 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 from docx import *
+import os
+from django.http import HttpResponse
+from django.conf import settings
+settings.configure()
+
 
 if __name__ == '__main__':        
+    """
+    Pretty much the same as the normal makedocument example, 
+    but designed to:
+    
+    a) Purely create the docx in memory using djangodocx function 
+       (which uses StringIO).
+    b) Create a HttpResponse containing the docx, which can be then be returned
+       to user per normal django response.
+    
+    """
+
     # Default set of relationshipships - these are the minimum components of a document
     relationships = relationshiplist()
 
@@ -71,9 +87,22 @@ if __name__ == '__main__':
     # Create our properties, contenttypes, and other support files
     coreprops = coreproperties(title='Python docx demo',subject='A practical example of making docx from Python',creator='Mike MacCana',keywords=['python','Office Open XML','Word'])
     appprops = appproperties()
-    contenttypes = contenttypes()
-    websettings = websettings()
-    wordrelationships = wordrelationships(relationships)
+    ctypes = contenttypes()
+    wsettings = websettings()
+    wrelationships = wordrelationships(relationships)
     
     # Save our document
-    print returndocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,'Welcome to the Python docx module.docx')
+
+    response = HttpResponse(mimetype='application/x-zip-compressed')
+    response['Content-Disposition'] = 'attachment; filename=audit_report.docx'
+
+    docx_file = djangodocx(document,coreprops,appprops,ctypes,wsettings,
+               wrelationships)
+
+    response.write(docx_file)
+    response['non_standard_header'] = 'This is a docx file within a django HttpResponse'
+    # you would normally do:
+    # return response
+    # and django would spit out a docx
+    print response['non_standard_header']
+

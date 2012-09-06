@@ -883,12 +883,15 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
     os.chdir(prev_dir) # restore previous working dir
     return
 
-def returndocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output):
+def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output=None):
     '''Save a modified document'''
     assert os.path.isdir(template_dir)
-    temp_file_like_object = StringIO() 
-    docxfile = zipfile.ZipFile(temp_file_like_object,mode='w',compression=zipfile.ZIP_DEFLATED)
-
+    
+    if not output:
+        output = StringIO()
+        
+    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
+    
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
@@ -915,9 +918,11 @@ def returndocx(document,coreprops,appprops,contenttypes,websettings,wordrelation
             archivename = templatefile[2:]
             log.info('Saving: %s', archivename)
             docxfile.write(templatefile, archivename)
-    log.info('Saved new file to: %r', output)
+    docxfile.close()
+    docx_zip = output.getvalue()
+    output.close()
     os.chdir(prev_dir) # restore previous working dir
-
-    return docxfile
+    
+    return docx_zip
 
 
