@@ -73,7 +73,6 @@ if __name__ == '__main__':
     appprops = appproperties()
     contenttypes = contenttypes()
     websettings = websettings()
-    wordrelationships = wordrelationships(relationships)
-    
+
     # Save our document
-    savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,'Welcome to the Python docx module.docx')
+    savedocx(document,coreprops,appprops,contenttypes,websettings,relationships,'Welcome to the Python docx module.docx')
