@@ -387,8 +387,12 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
 
     # Set relationship ID to the first available
     picid = '2'
-    picrelid = 'rId' + str(len(relationshiplist) + 1)
-    relationshiplist.append([image_relationship, picpath])
+    try:
+        relid = (idx for idx, rel in enumerate(relationshiplist) if rel[1] == picpath).next() + 1
+    except StopIteration:
+        relationshiplist.append([image_relationship, picpath])
+        relid = len(relationshiplist)
+    picrelid = 'rId' + str(relid)
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
