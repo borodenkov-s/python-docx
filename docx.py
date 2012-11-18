@@ -61,6 +61,7 @@ nsprefixes = {
     }
 
 image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink' 
 
 def opendocx(file):
     '''Open a docx file, return a document XML tree'''
@@ -841,8 +842,11 @@ def wordrelationships(relationshiplist):
 
     for idx, relationship in enumerate(relationshiplist):
         # Relationship IDs (rId) start at 1.
-        relationships.append(makeelement('Relationship', attributes={'Id': 'rId' + str(idx + 1),
-        'Type': relationship[0],'Target': relationship[1]}, nsprefix=None))
+        element = makeelement('Relationship', attributes={'Id': 'rId' + str(idx + 1),
+                              'Type': relationship[0],'Target': relationship[1]}, nsprefix=None)
+        if relationship[0] == hlink_relationship:
+            element.attrib['TargetMode'] = 'External'
+        relationships.append(element)
     
     return relationships
 
