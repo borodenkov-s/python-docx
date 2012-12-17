@@ -135,7 +135,7 @@ def pagebreak(type='page', orient='portrait'):
         pagebreak.append(pPr)
     return pagebreak
 
-def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
+def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times New Roman',fontsize=12):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -143,6 +143,11 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
                       left, center, right, both (justified), ...
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
+
+    @param string font: Paragraph font family
+
+    @param integer fontsize: Paragraph font size
+
 
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
@@ -179,6 +184,9 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
     for t in text:
         run = makeelement('r')
         rPr = makeelement('rPr')
+        pFnt = makeelement('rFonts',attributes={'ascii':font,'cs':font,'eastAsia':font,'hAnsi':font})
+        sz = makeelement('sz',attributes={'val':str(fontsize*2)})
+        szCs = makeelement('szCs',attributes={'val':str(fontsize*2)})
         # Apply styles
         if t[1].find('b') > -1:
             b = makeelement('b')
@@ -189,6 +197,9 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
         if t[1].find('i') > -1:
             i = makeelement('i')
             rPr.append(i)
+        rPr.append(pFnt)
+        rPr.append(sz)
+        rPr.append(szCs)
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.
@@ -899,5 +910,6 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, relations
     docxfile.close()
     os.chdir(prev_dir) # restore previous working dir
     return
+
 
 
