@@ -861,6 +861,7 @@ def wordrelationships(relationshiplist):
     
     return relationships
 
+
 def savedocx(document, coreprops, appprops, contenttypes, websettings, relationshiplist, output):
     '''Save a modified document'''
     assert os.path.isdir(template_dir)
@@ -881,6 +882,9 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, relations
     os.chdir(template_dir)
     
     _wordrelationships = wordrelationships(_relationshiplist)
+    
+    # Add page settings
+    document = add_page_settings(document)
 
     # Serialize our trees into out zip file
     treesandfiles = {document: 'word/document.xml',
@@ -909,7 +913,31 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, relations
     log.info('Saved new file to: %r', output)
     docxfile.close()
     os.chdir(prev_dir) # restore previous working dir
+
     return
 
 
+def add_page_settings(document):
+    ''' Add custom page settings '''
+    sectPr = makeelement('sectPr')
+    pgMar = makeelement('pgMar', attributes={'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
+                                             'left': '1138', 'right': '1138', 'top': '1138'})
+    type = makeelement('type', attributes={'val': 'nextPage'})
+    pgSz = makeelement('pgSz', attributes={'h': '15840', 'w': '12240'})
+    pgNumType = makeelement('pgNumType', attributes={'fmt': 'decimal'})
+    formProt = makeelement('formProt', attributes={'val': 'false'})
+    textDirection = makeelement('textDirection', attributes={'val': 'lrTb'})
+    docGrid = makeelement('docGrid', attributes={'charSpace': '0', 'linePitch': '240', 'type': 'default'})
 
+    sectPr.append(type)
+    sectPr.append(pgSz)
+    sectPr.append(pgMar)
+    sectPr.append(pgNumType)
+    sectPr.append(formProt)
+    sectPr.append(textDirection)
+    sectPr.append(docGrid)
+
+    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody.append(sectPr)
+
+    return document
