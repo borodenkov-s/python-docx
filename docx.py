@@ -1163,6 +1163,7 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
 
 def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output=None):
     '''Save a modified document'''
+    template_dir	= TEMP_TEMPLATE_DIR
     assert os.path.isdir(template_dir)
     
     if not output:

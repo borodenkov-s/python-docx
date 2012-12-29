@@ -27,7 +27,7 @@ if __name__ == '__main__':
     """
 
     # Default set of relationshipships - these are the minimum components of a document
-    relationships = relationshiplist()
+    relationships = getRelationships()
 
     # Make a new document tree - this is the main part of a Word document
     document = newdocument()
@@ -87,9 +87,9 @@ if __name__ == '__main__':
     # Create our properties, contenttypes, and other support files
     coreprops = coreproperties(title='Python docx demo',subject='A practical example of making docx from Python',creator='Mike MacCana',keywords=['python','Office Open XML','Word'])
     appprops = appproperties()
-    ctypes = contenttypes()
+    ctypes = getContentTypes()
     wsettings = websettings()
-    wrelationships = wordrelationships(relationships)
+    wrelationships = relationships
     
     # Save our document
 
