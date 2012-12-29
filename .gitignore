@@ -1,5 +1,6 @@
 .coverage
 *.pyc
+*.pyo
 *.docx
 *.kpf
 build
@@ -7,3 +8,8 @@ build
 *~
 \#*\#
 .\#*
+
+/.project
+/.pydevproject
+/.settings
+.temp_template_dir

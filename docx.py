@@ -14,6 +14,7 @@ try:
     from PIL import Image
 except ImportError:
     import Image
+
 import zipfile
 import shutil
 from distutils import dir_util
@@ -307,7 +308,7 @@ def heading(headingtext,headinglevel,lang='en'):
     # Return the combined paragraph
     return paragraph
 
-def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, rowstyle=None, table_props=None):
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
@@ -349,12 +350,11 @@ def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=No
     tableprops = makeelement('tblPr')
     tablestyle = makeelement('tblStyle',attributes={'val':tblstyle if tblstyle else ''})
     tableprops.append(tablestyle)
-    if not table_props:
-        table_props = {}
-    for k, attr in table_props.iteritems():
+    for attr in tableprops.iterchildren():
         if isinstance(attr, etree._Element):        
             tableprops.append(attr)            
         else:
+            raise KeyError('what type of element to make?')
             prop = makeelement(k, attributes=attr)
             tableprops.append(prop)
             
@@ -478,7 +478,7 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
     media_dir = join(template_dir, 'word', 'media')
     if not os.path.isdir(media_dir):
         os.makedirs(media_dir)
-    shutil.copyfile(picname, join(media_dir,picname))
+    shutil.copyfile(picpath, join(media_dir, picpath))
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -493,11 +493,14 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
 
     # Set relationship ID to the first available
     picid = '2'
+
     try:
         relid = (idx for idx, rel in enumerate(relationshiplist) if rel[1] == picpath).next() + 1
-    except StopIteration:
-        relationshiplist.append([image_relationship, picpath])
+
+    except (StopIteration, IndexError):
+        relationshiplist.append(makeelement('Relationship', attributes={'Id': 'rId' + str(len(relationshiplist)+1), 'Type': image_relationship,'Target': join('media', picpath)}, nsprefix=None))
         relid = len(relationshiplist)
+
     picrelid = 'rId' + str(relid)
 
     # There are 3 main elements inside a picture
@@ -1110,20 +1113,20 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
     # save images referred in relationshiplist, adjust relationshiplist
-    _relationshiplist = []
-    for r_type, target in relationshiplist:
-        if r_type == image_relationship:
-            path = 'media/' + basename(target)
-            docxfile.write(target, 'word/' + path)
-            _relationshiplist += [[r_type, path]]
-        else:
-            _relationshiplist += [[r_type, target]]
+#    _relationshiplist = []
+#    for r_type, target in relationshiplist:
+#        if r_type == image_relationship:
+#            path = 'media/' + basename(target)
+#            docxfile.write(target, 'word/' + path)
+#            _relationshiplist += [[r_type, path]]
+#        else:
+#            _relationshiplist += [[r_type, target]]
 
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
     
-    _wordrelationships = wordrelationships(_relationshiplist)
+#    _wordrelationships = wordrelationships(_relationshiplist)
     
     # Add page settings
     document = add_page_settings(document)
@@ -1134,7 +1137,7 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
                      appprops: 'docProps/app.xml',
                      contenttypes: '[Content_Types].xml',
                      websettings: 'word/webSettings.xml',
-                     _wordrelationships: 'word/_rels/document.xml.rels'}
+                     wordrelationships: 'word/_rels/document.xml.rels'}
     
     for tree in treesandfiles:
         log.info('Saving: ' + treesandfiles[tree])

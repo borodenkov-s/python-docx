@@ -32,8 +32,8 @@ if __name__ == '__main__':
         docbody.append(dx.paragraph(point,style='ListNumber'))
     docbody.append(dx.paragraph('''For those of us who prefer something simpler, I made docx.''')) 
     
-    docbody.append(heading('Making documents',2))
-    docbody.append(paragraph('''The docx module has the following features:''', font='Arial', fontsize=10))
+    docbody.append(dx.heading('Making documents',2))
+    docbody.append(dx.paragraph('''The docx module has the following features:''', font='Arial', fontsize=10))
 
     # Add some bullets
     for point in ['Paragraphs','Bullets','Numbered lists','Multiple levels of headings','Tables','Document Properties']:
