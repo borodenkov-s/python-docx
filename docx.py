@@ -19,6 +19,7 @@ import re
 import time
 import os
 from os.path import join
+from StringIO import StringIO
 
 log = logging.getLogger(__name__)
 
@@ -892,5 +893,47 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
     docxfile.close()
     os.chdir(prev_dir) # restore previous working dir
     return
+
+def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output=None):
+    '''Save a modified document'''
+    assert os.path.isdir(template_dir)
+    
+    if not output:
+        output = StringIO()
+        
+    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
+    
+    # Move to the template data path
+    prev_dir = os.path.abspath('.') # save previous working dir
+    os.chdir(template_dir)
+
+    # Serialize our trees into out zip file
+    treesandfiles = {document:'word/document.xml',
+                     coreprops:'docProps/core.xml',
+                     appprops:'docProps/app.xml',
+                     contenttypes:'[Content_Types].xml',
+                     websettings:'word/webSettings.xml',
+                     wordrelationships:'word/_rels/document.xml.rels'}
+    for tree in treesandfiles:
+        log.info('Saving: '+treesandfiles[tree]    )
+        treestring = etree.tostring(tree, pretty_print=True)
+        docxfile.writestr(treesandfiles[tree],treestring)
+
+    # Add & compress support files
+    files_to_ignore = ['.DS_Store'] # nuisance from some os's
+    for dirpath,dirnames,filenames in os.walk('.'):
+        for filename in filenames:
+            if filename in files_to_ignore:
+                continue
+            templatefile = join(dirpath,filename)
+            archivename = templatefile[2:]
+            log.info('Saving: %s', archivename)
+            docxfile.write(templatefile, archivename)
+    docxfile.close()
+    docx_zip = output.getvalue()
+    output.close()
+    os.chdir(prev_dir) # restore previous working dir
+    
+    return docx_zip
 
 
