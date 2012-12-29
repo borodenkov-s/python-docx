@@ -20,7 +20,7 @@ from distutils import dir_util
 import re
 import time
 import os
-from os.path import join
+from os.path import join, basename
 from StringIO import StringIO
 
 log = logging.getLogger(__name__)
@@ -38,32 +38,35 @@ TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
 # make it easier to copy Word output more easily.
 nsprefixes = {
     # Text Content
-    'mv':'urn:schemas-microsoft-com:mac:vml',
-    'mo':'http://schemas.microsoft.com/office/mac/office/2008/main',
-    've':'http://schemas.openxmlformats.org/markup-compatibility/2006',
-    'o':'urn:schemas-microsoft-com:office:office',
-    'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'm':'http://schemas.openxmlformats.org/officeDocument/2006/math',
-    'v':'urn:schemas-microsoft-com:vml',
-    'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
-    'w10':'urn:schemas-microsoft-com:office:word',
-    'wne':'http://schemas.microsoft.com/office/word/2006/wordml',
+    'mv': 'urn:schemas-microsoft-com:mac:vml',
+    'mo': 'http://schemas.microsoft.com/office/mac/office/2008/main',
+    've': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+    'o': 'urn:schemas-microsoft-com:office:office',
+    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    'm': 'http://schemas.openxmlformats.org/officeDocument/2006/math',
+    'v': 'urn:schemas-microsoft-com:vml',
+    'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+    'w10': 'urn:schemas-microsoft-com:office:word',
+    'wne': 'http://schemas.microsoft.com/office/word/2006/wordml',
     # Drawing
-    'wp':'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
-    'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
-    'pic':'http://schemas.openxmlformats.org/drawingml/2006/picture',
+    'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+    'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
     # Properties (core and extended)
-    'cp':"http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
-    'dc':"http://purl.org/dc/elements/1.1/",
-    'dcterms':"http://purl.org/dc/terms/",
-    'dcmitype':"http://purl.org/dc/dcmitype/",
-    'xsi':"http://www.w3.org/2001/XMLSchema-instance",
-    'ep':'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+    'cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
+    'dc': 'http://purl.org/dc/elements/1.1/',
+    'dcterms': 'http://purl.org/dc/terms/',
+    'dcmitype': 'http://purl.org/dc/dcmitype/',
+    'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'ep': 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
     # Content Types (we're just making up our own namespaces here to save time)
-    'ct':'http://schemas.openxmlformats.org/package/2006/content-types',
+    'ct': 'http://schemas.openxmlformats.org/package/2006/content-types',
     # Package Relationships (we're just making up our own namespaces here to save time)
-    'pr':'http://schemas.openxmlformats.org/package/2006/relationships'
+    'pr': 'http://schemas.openxmlformats.org/package/2006/relationships',
     }
+
+image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink' 
 
 def opendocx(file):
     '''Open a docx file, return a document XML tree'''
@@ -161,7 +164,7 @@ def pagebreak(type='page', orient='portrait'):
         pagebreak.append(pPr)
     return pagebreak
 
-def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
+def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times New Roman',fontsize=12):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -169,6 +172,11 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
                       left, center, right, both (justified), ...
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
+
+    @param string font: Paragraph font family
+
+    @param integer fontsize: Paragraph font size
+
 
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
@@ -210,6 +218,9 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     for t in text:
         run = makeelement('r')
         rPr = makeelement('rPr')
+        pFnt = makeelement('rFonts',attributes={'ascii':font,'cs':font,'eastAsia':font,'hAnsi':font})
+        sz = makeelement('sz',attributes={'val':str(fontsize*2)})
+        szCs = makeelement('szCs',attributes={'val':str(fontsize*2)})
         # Apply styles
         if t[1].has_key('style'):
             if t[1]['style'].find('b') > -1:
@@ -225,6 +236,9 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
             if not pr_key == 'style':
                 pr = makeelement(pr_key,attributes={'val': t[1][pr_key]})
                 rPr.append(pr)
+        rPr.append(pFnt)
+        rPr.append(sz)
+        rPr.append(szCs)
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.
@@ -450,10 +464,10 @@ def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=No
         table.append(row)
     return table
 
-def picture(relationshiplist, picname, picdescription, pixelwidth=None,
+def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
             template_dir=None):
-    '''Take a relationshiplist, picture file name, and return a paragraph containing the image
+    '''Take a relationshiplist, picture path, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
@@ -469,7 +483,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
         # If not, get info from the picture itself
-        pixelwidth,pixelheight = Image.open(picname).size[0:2]
+        pixelwidth, pixelheight = Image.open(picpath).size[0:2]
 
     # OpenXML measures on-screen objects in English Metric Units
     # 1cm = 36000 EMUs
@@ -479,65 +493,68 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
 
     # Set relationship ID to the first available
     picid = '2'
-    picrelid = 'rId'+str(len(relationshiplist)+1)
-    relationshiplist.append(makeelement('Relationship',attributes={'Id': picrelid,
-        'Type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
-        'Target': 'media/'+picname},nsprefix=None))
+    try:
+        relid = (idx for idx, rel in enumerate(relationshiplist) if rel[1] == picpath).next() + 1
+    except StopIteration:
+        relationshiplist.append([image_relationship, picpath])
+        relid = len(relationshiplist)
+    picrelid = 'rId' + str(relid)
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
-    blipfill = makeelement('blipFill',nsprefix='pic')
-    blipfill.append(makeelement('blip',nsprefix='a',attrnsprefix='r',attributes={'embed':picrelid}))
-    stretch = makeelement('stretch',nsprefix='a')
-    stretch.append(makeelement('fillRect',nsprefix='a'))
-    blipfill.append(makeelement('srcRect',nsprefix='a'))
+    blipfill = makeelement('blipFill', nsprefix='pic')
+    blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r', attributes={'embed': picrelid}))
+    stretch = makeelement('stretch', nsprefix='a')
+    stretch.append(makeelement('fillRect', nsprefix='a'))
+    blipfill.append(makeelement('srcRect', nsprefix='a'))
     blipfill.append(stretch)
 
     # 2. The non visual picture properties
-    nvpicpr = makeelement('nvPicPr',nsprefix='pic')
-    cnvpr = makeelement('cNvPr',nsprefix='pic',
-                        attributes={'id':'0','name':'Picture 1','descr':picname})
+    nvpicpr = makeelement('nvPicPr', nsprefix='pic')
+    cnvpr = makeelement('cNvPr', nsprefix='pic',
+                        attributes={'id': '0', 'name': 'Picture 1', 'descr': basename(picpath)})
     nvpicpr.append(cnvpr)
-    cnvpicpr = makeelement('cNvPicPr',nsprefix='pic')
+    cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
     cnvpicpr.append(makeelement('picLocks', nsprefix='a',
-                    attributes={'noChangeAspect':str(int(nochangeaspect)),
-                    'noChangeArrowheads':str(int(nochangearrowheads))}))
+                    attributes={'noChangeAspect': str(int(nochangeaspect)),
+                    'noChangeArrowheads': str(int(nochangearrowheads))}))
     nvpicpr.append(cnvpicpr)
 
     # 3. The Shape properties
-    sppr = makeelement('spPr',nsprefix='pic',attributes={'bwMode':'auto'})
-    xfrm = makeelement('xfrm',nsprefix='a')
-    xfrm.append(makeelement('off',nsprefix='a',attributes={'x':'0','y':'0'}))
-    xfrm.append(makeelement('ext',nsprefix='a',attributes={'cx':width,'cy':height}))
-    prstgeom = makeelement('prstGeom',nsprefix='a',attributes={'prst':'rect'})
-    prstgeom.append(makeelement('avLst',nsprefix='a'))
+    sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
+    xfrm = makeelement('xfrm' ,nsprefix='a')
+    xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0','y': '0'}))
+    xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width,'cy': height}))
+    prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
+    prstgeom.append(makeelement('avLst', nsprefix='a'))
     sppr.append(xfrm)
     sppr.append(prstgeom)
 
     # Add our 3 parts to the picture element
-    pic = makeelement('pic',nsprefix='pic')
+    pic = makeelement('pic', nsprefix='pic')
     pic.append(nvpicpr)
     pic.append(blipfill)
     pic.append(sppr)
 
     # Now make the supporting elements
     # The following sequence is just: make element, then add its children
-    graphicdata = makeelement('graphicData',nsprefix='a',
-        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+    graphicdata = makeelement('graphicData', nsprefix='a',
+                              attributes={'uri': 'http://schemas.openxmlformats.org/drawingml/2006/picture'})
     graphicdata.append(pic)
-    graphic = makeelement('graphic',nsprefix='a')
+    graphic = makeelement('graphic', nsprefix='a')
     graphic.append(graphicdata)
 
-    framelocks = makeelement('graphicFrameLocks',nsprefix='a',attributes={'noChangeAspect':'1'})
-    framepr = makeelement('cNvGraphicFramePr',nsprefix='wp')
+    framelocks = makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1'})
+    framepr = makeelement('cNvGraphicFramePr', nsprefix='wp')
     framepr.append(framelocks)
-    docpr = makeelement('docPr',nsprefix='wp',
-        attributes={'id':picid,'name':'Picture 1','descr':picdescription})
-    effectextent = makeelement('effectExtent',nsprefix='wp',
-        attributes={'l':'25400','t':'0','r':'0','b':'0'})
-    extent = makeelement('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
+    docpr = makeelement('docPr', nsprefix='wp',
+                        attributes={'id': picid, 'name': 'Picture 1', 'descr':picdescription})
+    effectextent = makeelement('effectExtent', nsprefix='wp',
+                               attributes={'l': '25400', 't': '0', 'r': '0', 'b': '0'})
+    extent = makeelement('extent', nsprefix='wp', attributes={'cx': width,'cy': height})
     inline = makeelement('inline',
-        attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"},nsprefix='wp')
+                         attributes={'distT': "0", 'distB': "0", 'distL': "0", 'distR': "0"},
+                         nsprefix='wp')
     inline.append(extent)
     inline.append(effectextent)
     inline.append(docpr)
@@ -549,7 +566,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     run.append(drawing)
     paragraph = makeelement('p')
     paragraph.append(run)
-    return relationshiplist,paragraph
+    return relationshiplist, paragraph
 
 
 def search(document,search):
@@ -1063,12 +1080,15 @@ def getDefaultRelationships():
     '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         </Relationships>'''
     )
-    count = 0
-    for relationship in relationshiplist:
+
+    for idx, relationship in enumerate(relationshiplist):
         # Relationship IDs (rId) start at 1.
-        relationships.append(makeelement('Relationship',attributes={'Id':'rId'+str(count+1),
-        'Type':relationship[0],'Target':relationship[1]},nsprefix=None))
-        count += 1
+        element = makeelement('Relationship', attributes={'Id': 'rId' + str(idx + 1),
+                              'Type': relationship[0],'Target': relationship[1]}, nsprefix=None)
+        if relationship[0] == hlink_relationship:
+            element.attrib['TargetMode'] = 'External'
+        relationships.append(element)
+    
     return relationships
 
 def getRelationships(file=None):
@@ -1087,28 +1107,43 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     if not template_dir:
         template_dir = TEMP_TEMPLATE_DIR
     assert os.path.isdir(template_dir)
+    docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
-    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
+    # save images referred in relationshiplist, adjust relationshiplist
+    _relationshiplist = []
+    for r_type, target in relationshiplist:
+        if r_type == image_relationship:
+            path = 'media/' + basename(target)
+            docxfile.write(target, 'word/' + path)
+            _relationshiplist += [[r_type, path]]
+        else:
+            _relationshiplist += [[r_type, target]]
 
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
+    
+    _wordrelationships = wordrelationships(_relationshiplist)
+    
+    # Add page settings
+    document = add_page_settings(document)
 
     # Serialize our trees into out zip file
-    treesandfiles = {document:'word/document.xml',
-                     coreprops:'docProps/core.xml',
-                     appprops:'docProps/app.xml',
-                     contenttypes:'[Content_Types].xml',
-                     websettings:'word/webSettings.xml',
-                     wordrelationships:'word/_rels/document.xml.rels'}
+    treesandfiles = {document: 'word/document.xml',
+                     coreprops: 'docProps/core.xml',
+                     appprops: 'docProps/app.xml',
+                     contenttypes: '[Content_Types].xml',
+                     websettings: 'word/webSettings.xml',
+                     _wordrelationships: 'word/_rels/document.xml.rels'}
+    
     for tree in treesandfiles:
-        log.info('Saving: '+treesandfiles[tree]    )
+        log.info('Saving: ' + treesandfiles[tree])
         treestring = etree.tostring(tree, pretty_print=True)
-        docxfile.writestr(treesandfiles[tree],treestring)
+        docxfile.writestr(treesandfiles[tree], treestring)
 
     # Add & compress support files
     files_to_ignore = ['.DS_Store'] # nuisance from some os's
-    for dirpath,dirnames,filenames in os.walk('.'):
+    for dirpath, dirnames, filenames in os.walk('.'):
         for filename in filenames:
             if filename in files_to_ignore:
                 continue
@@ -1116,9 +1151,11 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
             archivename = templatefile[2:]
             log.info('Saving: %s', archivename)
             docxfile.write(templatefile, archivename)
+            
     log.info('Saved new file to: %r', output)
     docxfile.close()
     os.chdir(prev_dir) # restore previous working dir
+
     return
 
 def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output=None):
@@ -1164,3 +1201,27 @@ def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelation
     return docx_zip
 
 
+def add_page_settings(document):
+    ''' Add custom page settings '''
+    sectPr = makeelement('sectPr')
+    pgMar = makeelement('pgMar', attributes={'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
+                                             'left': '1138', 'right': '1138', 'top': '1138'})
+    type = makeelement('type', attributes={'val': 'nextPage'})
+    pgSz = makeelement('pgSz', attributes={'h': '15840', 'w': '12240'})
+    pgNumType = makeelement('pgNumType', attributes={'fmt': 'decimal'})
+    formProt = makeelement('formProt', attributes={'val': 'false'})
+    textDirection = makeelement('textDirection', attributes={'val': 'lrTb'})
+    docGrid = makeelement('docGrid', attributes={'charSpace': '0', 'linePitch': '240', 'type': 'default'})
+
+    sectPr.append(type)
+    sectPr.append(pgSz)
+    sectPr.append(pgMar)
+    sectPr.append(pgNumType)
+    sectPr.append(formProt)
+    sectPr.append(textDirection)
+    sectPr.append(docGrid)
+
+    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody.append(sectPr)
+
+    return document
