@@ -215,7 +215,7 @@ def contenttypes():
     for part in parts:
         types.append(makeelement('Override',nsprefix=None,attributes={'PartName':part,'ContentType':parts[part]}))
     # Add support for filetypes
-    filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml','xml':'application/xml','jpeg':'image/jpeg','gif':'image/gif','png':'image/png'}
+    filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml','xml':'application/xml','jpg':'image/jpg','jpeg':'image/jpeg','gif':'image/gif','png':'image/png'}
     for extension in filetypes:
         types.append(makeelement('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
     return types
