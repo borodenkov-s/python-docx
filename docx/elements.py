@@ -1,5 +1,17 @@
 #-*- coding:utf-8 -*-
 
+import os
+from os.path import join
+import shutil
+
+from lxml import etree
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+
+from metadata import TEMPLATE_DIR, nsprefixes
+
 def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
     '''Create an element & return it'''
     # Deal with list of nsprefix by making namespacemap
@@ -34,21 +46,21 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
         newelement.text = tagtext
     return newelement
 
-def pagebreak(type='page', orient='portrait', pageformat='letter'):
+def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
     '''Insert a break, default 'page'.
     See http://openxmldeveloper.org/forums/thread/4075.aspx
     Return our page break element.'''
     # Need to enumerate different types of page breaks.
     validtypes = ['page', 'section']
-    if type not in validtypes:
-        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (type, validtypes))
+    if breaktype not in validtypes:
+        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (breaktype, validtypes))
     pagebreak = makeelement('p')
-    if type == 'page':
+    if breaktype == 'page':
         run = makeelement('r')
-        br = makeelement('br',attributes={'type':type})
+        br = makeelement('br',attributes={'type':breaktype})
         run.append(br)
         pagebreak.append(run)
-    elif type == 'section':
+    elif breaktype == 'section':
         pPr = makeelement('pPr')
         sectPr = makeelement('sectPr')
 

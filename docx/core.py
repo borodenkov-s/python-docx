@@ -10,10 +10,6 @@ See LICENSE for licensing information.
 from copy import deepcopy
 import logging
 from lxml import etree
-try:
-    from PIL import Image
-except ImportError:
-    import Image
 
 import zipfile
 import shutil
@@ -25,69 +21,10 @@ from os.path import join, basename
 from StringIO import StringIO
 
 from utils import findTypeParent
-from metadata import nsprefixes
+from metadata import nsprefixes, FORMAT, PAGESETTINGS
+
 
 log = logging.getLogger(__name__)
-
-# Record template directory's location which is just 'template' for a docx
-# developer or 'site-packages/docx-template' if you have installed docx
-TEMPLATE_DIR = join(os.path.dirname(__file__), 'docx-template') # installed
-if not os.path.isdir(TEMPLATE_DIR):
-    TEMPLATE_DIR = join(os.path.dirname(__file__), 'template') # dev
-
-TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
-
-# All Word prefixes / namespace matches used in document.xml & core.xml.
-# LXML doesn't actually use prefixes (just the real namespace) , but these
-# make it easier to copy Word output more easily.
-nsprefixes = {
-    # Text Content
-    'mv': 'urn:schemas-microsoft-com:mac:vml',
-    'mo': 'http://schemas.microsoft.com/office/mac/office/2008/main',
-    've': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-    'o': 'urn:schemas-microsoft-com:office:office',
-    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'm': 'http://schemas.openxmlformats.org/officeDocument/2006/math',
-    'v': 'urn:schemas-microsoft-com:vml',
-    'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
-    'w10': 'urn:schemas-microsoft-com:office:word',
-    'wne': 'http://schemas.microsoft.com/office/word/2006/wordml',
-    # Drawing
-    'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
-    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-    'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
-    # Properties (core and extended)
-    'cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
-    'dc': 'http://purl.org/dc/elements/1.1/',
-    'dcterms': 'http://purl.org/dc/terms/',
-    'dcmitype': 'http://purl.org/dc/dcmitype/',
-    'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-    'ep': 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
-    # Content Types (we're just making up our own namespaces here to save time)
-    'ct': 'http://schemas.openxmlformats.org/package/2006/content-types',
-    # Package Relationships (we're just making up our own namespaces here to save time)
-    'pr': 'http://schemas.openxmlformats.org/package/2006/relationships',
-    }
-
-FORMAT = {
-        "letter": {"w": '12240', "h": '15840'},
-        "a4": {"w": '11906', "h": '16838'},
-        "a5": {"w": '8391', "h": '11906'},
-        }
-
-PAGESETTINGS = {
-    'pgMar': {'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
-                        'left': '1138', 'right': '1138', 'top': '1138'},
-    'type': {'val': 'nextPage'},
-    'pgSz': FORMAT['a4'],
-    'pgNumType': {'fmt': 'decimal'},
-    'formProt': {'val': 'false'},
-    'textDirection': {'val': 'lrTb'},
-    'docGrid': {'charSpace': '0', 'linePitch': '240', 'type': 'default'}
-    }
-
-image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
-hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
 
 class Docx(object):
@@ -98,23 +35,26 @@ class Docx(object):
                      websettings: 'word/webSettings.xml',
                      wordrelationships: 'word/_rels/document.xml.rels'}
 
-    def __init__(self, file=None)
-        self._orig_docx = file
+    def __init__(self, outfile=None)
+        self._orig_docx = outfile
         self._tmp_file = NamedTemporaryFile()
 
-        if file is None:
-            file = self.__generate_empty_docx()
+        if outfile is None:
+            outfile = self.__generate_empty_docx()
 
-        shutil.copyfile(file, self._tmp_file.name)
+        shutil.copyfile(outfile, self._tmp_file.name)
         self._docx = ZipFile(self._tmp_file.name, mode='a')
 
-        for tree, file in self.trees_and_files.items():
-            self._load_etree(tree, file)
+        for tree, outfile in self.trees_and_files.items():
+            self._load_etree(tree, outfile)
+
+        self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
 
     def append(self, *args, **kwargs):
-        return self.document.append(*args, **kwargs)
+        return self.docbody.append(*args, **kwargs)
 
-    def search(document,search):
+    def search(self,search):
+        document = self.docbody
         '''Search a document for a regex, return success / fail result'''
         result = False
         searchre = re.compile(search)
@@ -125,9 +65,9 @@ class Docx(object):
                         result = True
         return result
 
-    def replace(document,search,replace):
+    def replace(self,search,replace):
         '''Replace all occurences of string with a different string, return updated document'''
-        newdocument = document
+        newdocument = self.docbody
         searchre = re.compile(search)
         for element in newdocument.iter():
             if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
@@ -136,12 +76,12 @@ class Docx(object):
                         element.text = re.sub(search,replace,element.text)
         return newdocument
 
-    def clean(document):
+    def clean(self):
         """ Perform misc cleaning operations on documents.
             Returns cleaned document.
         """
 
-        newdocument = document
+        newdocument = self.docbody
 
         # Clean empty text and r tags
         for t in ('t', 'r'):
@@ -155,7 +95,7 @@ class Docx(object):
 
         return newdocument
 
-    def advReplace(document,search,replace,bs=3):
+    def advReplace(self,search,replace,bs=3):
         '''Replace all occurences of string with a different string, return updated document
 
         This is a modified version of python-docx.replace() that takes into
@@ -196,7 +136,7 @@ class Docx(object):
         # Enables debug output
         DEBUG = False
 
-        newdocument = document
+        newdocument = self.docbody
 
         # Compile the search regexp
         searchre = re.compile(search)
@@ -355,7 +295,7 @@ class Docx(object):
     def _get_etree(self, xmldoc):
         return etree.fromstring(self._docx.read(xmldoc))
 
-    # check if used ..
+
     def _load_etree(self, name, xmldoc):
         setattr(name, xmldoc)
 
@@ -501,7 +441,7 @@ class Docx(object):
     @property
     def text(self):
         '''Return the raw text of a document, as a list of paragraphs.'''
-        document = self.document
+        document = self.docbody
         paratextlist=[]
         # Compile a list of all paragraph (p) elements
         paralist = []
