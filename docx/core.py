@@ -10,8 +10,10 @@ See LICENSE for licensing information.
 from copy import deepcopy
 import logging
 from lxml import etree
+from dateutil import parser as dateParser
 
 import zipfile
+from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
 from distutils import dir_util
 import re
@@ -19,23 +21,24 @@ import time
 import os
 from os.path import join, basename
 from StringIO import StringIO
+from tempfile import NamedTemporaryFile
 
 from utils import findTypeParent
-from metadata import nsprefixes, FORMAT, PAGESETTINGS
+from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
 
 
 log = logging.getLogger(__name__)
 
 
 class Docx(object):
-    treesandfiles = {document: 'word/document.xml',
-                     coreprops: 'docProps/core.xml',
-                     appprops: 'docProps/app.xml',
-                     contenttypes: '[Content_Types].xml',
-                     websettings: 'word/webSettings.xml',
-                     wordrelationships: 'word/_rels/document.xml.rels'}
+    trees_and_files = {"document": 'word/document.xml',
+                     "coreprops": 'docProps/core.xml',
+                     "appprops": 'docProps/app.xml',
+                     "contenttypes": '[Content_Types].xml',
+                     "websettings": 'word/webSettings.xml',
+                     "wordrelationships": 'word/_rels/document.xml.rels'}
 
-    def __init__(self, outfile=None)
+    def __init__(self, outfile=None):
         self._orig_docx = outfile
         self._tmp_file = NamedTemporaryFile()
 
@@ -49,6 +52,23 @@ class Docx(object):
             self._load_etree(tree, outfile)
 
         self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+
+
+        # Make getters and setter for the core properties
+        def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
+            getter = lambda self: to_python(self._get_coreprop_val(prop))
+            setter = lambda self, val: to_str(self._set_coreprop_val(prop, val))
+            setattr(self, prop, property(getter, setter))
+
+        for prop in ['title', 'subject', 'creator', 'description',
+                     'lastModifiedBy', 'revision']:
+            set_coreprop_property(prop)
+
+        for datetimeprop in ['created', 'modified']:
+            set_coreprop_property(datetimeprop,
+                to_python=dateParser.parse,
+                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+            )
 
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
@@ -297,8 +317,14 @@ class Docx(object):
 
 
     def _load_etree(self, name, xmldoc):
-        setattr(name, xmldoc)
+        setattr(self, name, self._get_etree(xmldoc))
 
+    def template(self, cx):
+        output = self.copy()
+        for key, val in cx.items():
+            key = "{{%s}}" % key
+            output.replace(key, val)
+        return output
         """
     def createdoc(document, coreprops, appprops, contenttypes, websettings,
                     wordrelationships, output, settings=None, template_dir=None):
@@ -384,13 +410,13 @@ class Docx(object):
         # Serialize our trees into our zip file
         for tree, dest_file in self.trees_and_files.items():
             log.info('Saving: ' + dest_file)
-            docxfile.writestr(dest_file, getattr(self, tree))
+            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
 
         log.info('Saved new file to: %r', dest)
         docxfile.close()
 
         if dest is not None:
-            shutil.copyfile(self._tmp_file, dest)
+            shutil.copyfile(self._tmp_file.name, dest)
 
     # check if used ..
     def copy(self):
@@ -410,6 +436,15 @@ class Docx(object):
         self._docx.close()
         self._tmp_file.close()
 
+    def _get_coreprop(self, tagname):
+        return self.coreprops.xpath("*[local-name()='title']")[0]
+
+    def _get_coreprop_val(self, tagname):
+        return self._get_coreprop(tagname).text
+
+    def _get_coreprof_val(self, tagname, val):
+        self._get_coreprop(tagname).text = val
+
     # check if used ..
     def __generate_empty_docx(self):
         self.__empty_docx = NamedTemporaryFile()
@@ -419,7 +454,7 @@ class Docx(object):
 
         # Move to the template data path
         prev_dir = os.path.abspath('.') # save previous working dir
-        os.chdir(template_dir)
+        os.chdir(TEMPLATE_DIR)
 
         # Add & compress support files
         files_to_ignore = ['.DS_Store'] # nuisance from some os's

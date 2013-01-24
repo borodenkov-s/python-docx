@@ -1,5 +1,7 @@
 #-*- coding:utf-8 -*-
 
+from os.path import abspath, dirname, join
+
 PACKAGE_DIR = abspath(dirname(__file__))
 TEMPLATE_DIR = join(PACKAGE_DIR, 'template')
 

@@ -10,7 +10,8 @@ try:
 except ImportError:
     import Image
 
-from metadata import TEMPLATE_DIR, nsprefixes
+
+from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
 
 def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
     '''Create an element & return it'''
