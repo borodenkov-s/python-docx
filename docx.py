@@ -646,7 +646,6 @@ def clean(document):
 
 def findTypeParent(element, tag):
     """ Finds fist parent of element of the given type
-    
     @param object element: etree element
     @param string the tag parent to search for
     
@@ -1123,12 +1122,19 @@ def getRelationships(file=None, prefix="document"):
     else:
         return getDefaultRelationships()
 
-def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output,
-             template_dir=None):
+
+
+def createdoc(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output, settings=None, template_dir=None):
+
     '''Save a modified document'''
     if not template_dir:
         template_dir = TEMP_TEMPLATE_DIR
     assert os.path.isdir(template_dir)
+
+    if not output:
+        output = StringIO()
+
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
     # save images referred in relationshiplist, adjust relationshiplist
@@ -1173,54 +1179,30 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
             archivename = templatefile[2:]
             log.info('Saving: %s', archivename)
             docxfile.write(templatefile, archivename)
-            
-    log.info('Saved new file to: %r', output)
-    docxfile.close()
+
+    log.info('Saved new file to : %r', output or 'Direct Output')
     os.chdir(prev_dir) # restore previous working dir
-
-    return
-
-def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output=None):
-    '''Save a modified document'''
-    template_dir	= TEMP_TEMPLATE_DIR
-    assert os.path.isdir(template_dir)
-    
-    if not output:
-        output = StringIO()
-        
-    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
-    
-    # Move to the template data path
-    prev_dir = os.path.abspath('.') # save previous working dir
-    os.chdir(template_dir)
-
-    # Serialize our trees into out zip file
-    treesandfiles = {document:'word/document.xml',
-                     coreprops:'docProps/core.xml',
-                     appprops:'docProps/app.xml',
-                     contenttypes:'[Content_Types].xml',
-                     websettings:'word/webSettings.xml',
-                     wordrelationships:'word/_rels/document.xml.rels'}
-    for tree in treesandfiles:
-        log.info('Saving: '+treesandfiles[tree]    )
-        treestring = etree.tostring(tree, pretty_print=True)
-        docxfile.writestr(treesandfiles[tree],treestring)
-
-    # Add & compress support files
-    files_to_ignore = ['.DS_Store'] # nuisance from some os's
-    for dirpath,dirnames,filenames in os.walk('.'):
-        for filename in filenames:
-            if filename in files_to_ignore:
-                continue
-            templatefile = join(dirpath,filename)
-            archivename = templatefile[2:]
-            log.info('Saving: %s', archivename)
-            docxfile.write(templatefile, archivename)
     docxfile.close()
+
+    return docxfile, output
+
+def savedocx(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output, settings=None, template_dir=None):
+
+    docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                websettings, wordrelationships, output, settings, template_dir)
+
+    return docxfile
+
+def djangodocx(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output=None, settings=None, template_dir=None):
+
+    docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                websettings, wordrelationships, output, settings, template_dir)
+
     docx_zip = output.getvalue()
     output.close()
-    os.chdir(prev_dir) # restore previous working dir
-    
+
     return docx_zip
 
 
