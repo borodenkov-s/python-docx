@@ -10,10 +10,11 @@ try:
 except ImportError:
     import Image
 
-
 from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
 
-def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
+
+def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
+                                                            attrnsprefix=None):
     '''Create an element & return it'''
     # Deal with list of nsprefix by making namespacemap
     namespacemap = None
@@ -21,13 +22,13 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
         namespacemap = {}
         for prefix in nsprefix:
             namespacemap[prefix] = nsprefixes[prefix]
-        nsprefix = nsprefix[0] # FIXME: rest of code below expects a single prefix
+        nsprefix = nsprefix[0]  # FIXME: code below expects a single prefix
     if nsprefix:
-        namespace = '{'+nsprefixes[nsprefix]+'}'
+        namespace = '{' + nsprefixes[nsprefix] + '}'
     else:
         # For when namespace = None
         namespace = ''
-    newelement = etree.Element(namespace+tagname, nsmap=namespacemap)
+    newelement = etree.Element(namespace + tagname, nsmap=namespacemap)
     # Add attributes with namespaces
     if attributes:
         # If they haven't bothered setting attribute namespace, use an empty string
@@ -58,7 +59,7 @@ def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
     pagebreak = makeelement('p')
     if breaktype == 'page':
         run = makeelement('r')
-        br = makeelement('br',attributes={'type':breaktype})
+        br = makeelement('br', attributes={'type': breaktype})
         run.append(br)
         pagebreak.append(run)
     elif breaktype == 'section':
@@ -69,13 +70,14 @@ def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
         if orient == 'landscape':
             pageSize['orient'] = 'landscape'
 
-        pgSz = makeelement('pgSz',attributes=pageSize)
+        pgSz = makeelement('pgSz', attributes=pageSize)
         sectPr.append(pgSz)
         pPr.append(sectPr)
         pagebreak.append(pPr)
     return pagebreak
 
-def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times New Roman',fontsize=12):
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
+                                        font='Times New Roman', fontsize=12):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -111,7 +113,7 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times 
         paratext = [paratext]
     text = []
     for pt in paratext:
-        if not isinstance(pt, (list,tuple)):
+        if not isinstance(pt, (list, tuple)):
             pt = (pt, {})
         lines = pt[0].split('\n')
         for l in lines[:-1]:
@@ -133,7 +135,7 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times 
         sz = makeelement('sz',attributes={'val':str(fontsize*2)})
         szCs = makeelement('szCs',attributes={'val':str(fontsize*2)})
         # Apply styles
-        if t[1].has_key('style'):
+        if 'style' in t[1]:
             if t[1]['style'].find('b') > -1:
                 b = makeelement('b')
                 rPr.append(b)
@@ -165,18 +167,19 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left',font='Times 
     # Return the combined paragraph
     return paragraph
 
-def heading(headingtext,headinglevel,lang='en'):
+def heading(headingtext, headinglevel, lang='en'):
     '''Make a new heading, return the heading element'''
     lmap = {
         'en': 'Heading',
         'it': 'Titolo',
+        'fr': 'Titre',
     }
     # Make our elements
     paragraph = makeelement('p')
     pr = makeelement('pPr')
-    pStyle = makeelement('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})
+    pStyle = makeelement('pStyle', attributes={'val': lmap[lang] + str(headinglevel)})
     run = makeelement('r')
-    text = makeelement('t',tagtext=headingtext)
+    text = makeelement('t', tagtext=headingtext)
     # Add the text the run, and the run to the paragraph
     pr.append(pStyle)
     run.append(text)
@@ -185,7 +188,9 @@ def heading(headingtext,headinglevel,lang='en'):
     # Return the combined paragraph
     return paragraph
 
-def table(contents, tblstyle=None, tbllook={'val':'0400'}, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, rowstyle=None, table_props=None):
+def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
+            colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={},
+            celstyle=None, rowstyle=None, table_props=None):
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
@@ -402,9 +407,9 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
 
     # 3. The Shape properties
     sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
-    xfrm = makeelement('xfrm' ,nsprefix='a')
-    xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0','y': '0'}))
-    xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width,'cy': height}))
+    xfrm = makeelement('xfrm', nsprefix='a')
+    xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
+    xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
     prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
     prstgeom.append(makeelement('avLst', nsprefix='a'))
     sppr.append(xfrm)

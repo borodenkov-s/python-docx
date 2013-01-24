@@ -1,7 +1,8 @@
 #!/usr/bin/env python2.6
 # -*- coding: utf-8 -*-
 '''
-Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
+Open and modify Microsoft Word 2007 docx files (called 'OpenXML'
+and 'Office OpenXML' by Microsoft)
 
 Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
@@ -12,20 +13,18 @@ import logging
 from lxml import etree
 from dateutil import parser as dateParser
 
-import zipfile
 from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
-from distutils import dir_util
 import re
-import time
 import os
-from os.path import join, basename
-from StringIO import StringIO
+from os.path import join
+
 from tempfile import NamedTemporaryFile
+from .utils import findTypeParent
 
-from utils import findTypeParent
-from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
-
+from StringIO import StringIO
+from .metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
+from .elements import makeelement
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +50,8 @@ class Docx(object):
         for tree, outfile in self.trees_and_files.items():
             self._load_etree(tree, outfile)
 
-        self.docbody = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
-
+        self.docbody = self.document.xpath('/w:document/w:body',
+                                                    namespaces=nsprefixes)[0]
 
         # Make getters and setter for the core properties
         def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
@@ -67,33 +66,34 @@ class Docx(object):
         for datetimeprop in ['created', 'modified']:
             set_coreprop_property(datetimeprop,
                 to_python=dateParser.parse,
-                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat')
+                                        else dateParser.parse(obj).isoformat()
             )
 
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
 
-    def search(self,search):
+    def search(self, search):
         document = self.docbody
         '''Search a document for a regex, return success / fail result'''
         result = False
         searchre = re.compile(search)
         for element in document.iter():
-            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
                 if element.text:
                     if searchre.search(element.text):
                         result = True
         return result
 
-    def replace(self,search,replace):
+    def replace(self, search, replace):
         '''Replace all occurences of string with a different string, return updated document'''
         newdocument = self.docbody
         searchre = re.compile(search)
         for element in newdocument.iter():
-            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
                 if element.text:
                     if searchre.search(element.text):
-                        element.text = re.sub(search,replace,element.text)
+                        element.text = re.sub(search, replace, element.text)
         return newdocument
 
     def clean(self):
@@ -115,7 +115,7 @@ class Docx(object):
 
         return newdocument
 
-    def advReplace(self,search,replace,bs=3):
+    def advReplace(self, search, replace, bs=3):
         '''Replace all occurences of string with a different string, return updated document
 
         This is a modified version of python-docx.replace() that takes into
@@ -166,7 +166,7 @@ class Docx(object):
         searchels = []
 
         for element in newdocument.iter():
-            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
                 if element.text:
                     # Add this element to searchels
                     searchels.append(element)
@@ -209,12 +209,12 @@ class Docx(object):
                             log.debug("Search regexp: %s", searchre.pattern)
                             log.debug("Requested replacement: %s", replace)
                             log.debug("Matched text: %s", txtsearch)
-                            log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                            log.debug("Matched text (splitted): %s", map(lambda i:i.text,searchels))
                             log.debug("Matched at position: %s", match.start())
-                            log.debug( "matched in elements: %s", e)
+                            log.debug("matched in elements: %s", e)
                             if isinstance(replace, etree._Element):
                                 log.debug("Will replace with XML CODE")
-                            elif isinstance(replace (list, tuple)):
+                            elif isinstance(replace(list, tuple)):
                                 log.debug("Will replace with LIST OF ELEMENTS")
                             else:
                                 log.debug("Will replace with:", re.sub(search,replace,txtsearch))
@@ -260,7 +260,7 @@ class Docx(object):
                             el_to_delete = template_r.find('{%s}t' % nsprefixes['w'])
                             if not el_to_delete == None:
                                 template_r.remove(el_to_delete)
-                            p =  org_first_r.getparent()
+                            p = org_first_r.getparent()
                             insindex = p.index(org_first_r)
 
                             # insert the prefix
@@ -314,7 +314,6 @@ class Docx(object):
     # check if used ..
     def _get_etree(self, xmldoc):
         return etree.fromstring(self._docx.read(xmldoc))
-
 
     def _load_etree(self, name, xmldoc):
         setattr(self, name, self._get_etree(xmldoc))
@@ -458,11 +457,11 @@ class Docx(object):
 
         # Add & compress support files
         files_to_ignore = ['.DS_Store'] # nuisance from some os's
-        for dirpath,dirnames,filenames in os.walk('.'):
+        for dirpath, dirnames, filenames in os.walk('.'):
             for filename in filenames:
                 if filename in files_to_ignore:
                     continue
-                templatefile = join(dirpath,filename)
+                templatefile = join(dirpath, filename)
                 archivename = templatefile[2:]
                 log.info('Saving: %s', archivename)
                 docxfile.write(templatefile, archivename)
@@ -477,21 +476,21 @@ class Docx(object):
     def text(self):
         '''Return the raw text of a document, as a list of paragraphs.'''
         document = self.docbody
-        paratextlist=[]
+        paratextlist = []
         # Compile a list of all paragraph (p) elements
         paralist = []
         for element in document.iter():
             # Find p (paragraph) elements
-            if element.tag == '{'+nsprefixes['w']+'}p':
+            if element.tag == '{' + nsprefixes['w'] + '}p':
                 paralist.append(element)
         # Since a single sentence might be spread over multiple text elements, iterate through each
         # paragraph, appending all text (t) children to that paragraphs text.
         for para in paralist:
-            paratext=u''
+            paratext = u''
             # Loop through each paragraph
             for element in para.iter():
                 # Find t (text) elements
-                if element.tag == '{'+nsprefixes['w']+'}t':
+                if element.tag == '{' + nsprefixes['w'] + '}t':
                     if element.text:
                         paratext = paratext+element.text
             # Add our completed paragraph text to the list of paragraph text
