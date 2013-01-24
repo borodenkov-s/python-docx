@@ -1113,11 +1113,11 @@ def getDefaultRelationships():
     
     return relationships
 
-def getRelationships(file=None):
+def getRelationships(file=None, prefix="document"):
     '''Get a Word relationships file from a given Word document'''
     if file and os.path.isfile(file):
         mydoc = zipfile.ZipFile(file)
-        xmlcontent = mydoc.read('word/_rels/document.xml.rels')
+        xmlcontent = mydoc.read('word/_rels/{0}.xml.rels'.format(prefix))
         relationships = etree.fromstring(xmlcontent)
         return relationships
     else:
