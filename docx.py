@@ -66,6 +66,23 @@ nsprefixes = {
     'pr': 'http://schemas.openxmlformats.org/package/2006/relationships',
     }
 
+FORMAT = {
+        "letter": {"w": '12240', "h": '15840'},
+        "a4": {"w": '11906', "h": '16838'},
+        "a5": {"w": '8391', "h": '11906'},
+        }
+
+PAGESETTINGS = {
+    'pgMar': {'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
+                        'left': '1138', 'right': '1138', 'top': '1138'},
+    'type': {'val': 'nextPage'},
+    'pgSz': FORMAT['a4'],
+    'pgNumType': {'fmt': 'decimal'},
+    'formProt': {'val': 'false'},
+    'textDirection': {'val': 'lrTb'},
+    'docGrid': {'charSpace': '0', 'linePitch': '240', 'type': 'default'}
+    }
+
 image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink' 
 
@@ -139,7 +156,7 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
         newelement.text = tagtext
     return newelement
 
-def pagebreak(type='page', orient='portrait'):
+def pagebreak(type='page', orient='portrait', pageformat='letter'):
     '''Insert a break, default 'page'.
     See http://openxmldeveloper.org/forums/thread/4075.aspx
     Return our page break element.'''
@@ -156,10 +173,12 @@ def pagebreak(type='page', orient='portrait'):
     elif type == 'section':
         pPr = makeelement('pPr')
         sectPr = makeelement('sectPr')
-        if orient == 'portrait':
-            pgSz = makeelement('pgSz',attributes={'w':'12240','h':'15840'})
-        elif orient == 'landscape':
-            pgSz = makeelement('pgSz',attributes={'h':'12240','w':'15840', 'orient':'landscape'})
+
+        pageSize = FORMAT[pageformat]
+        if orient == 'landscape':
+            pageSize['orient'] = 'landscape'
+
+        pgSz = makeelement('pgSz',attributes=pageSize)
         sectPr.append(pgSz)
         pPr.append(sectPr)
         pagebreak.append(pPr)
@@ -1125,11 +1144,11 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
-    
+
 #    _wordrelationships = wordrelationships(_relationshiplist)
-    
+
     # Add page settings
-    document = add_page_settings(document)
+    document = add_page_settings(document, settings)
 
     # Serialize our trees into out zip file
     treesandfiles = {document: 'word/document.xml',
@@ -1138,7 +1157,7 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
                      contenttypes: '[Content_Types].xml',
                      websettings: 'word/webSettings.xml',
                      wordrelationships: 'word/_rels/document.xml.rels'}
-    
+
     for tree in treesandfiles:
         log.info('Saving: ' + treesandfiles[tree])
         treestring = etree.tostring(tree, pretty_print=True)
@@ -1205,25 +1224,15 @@ def djangodocx(document,coreprops,appprops,contenttypes,websettings,wordrelation
     return docx_zip
 
 
-def add_page_settings(document):
+def add_page_settings(document, settings):
     ''' Add custom page settings '''
     sectPr = makeelement('sectPr')
-    pgMar = makeelement('pgMar', attributes={'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
-                                             'left': '1138', 'right': '1138', 'top': '1138'})
-    type = makeelement('type', attributes={'val': 'nextPage'})
-    pgSz = makeelement('pgSz', attributes={'h': '15840', 'w': '12240'})
-    pgNumType = makeelement('pgNumType', attributes={'fmt': 'decimal'})
-    formProt = makeelement('formProt', attributes={'val': 'false'})
-    textDirection = makeelement('textDirection', attributes={'val': 'lrTb'})
-    docGrid = makeelement('docGrid', attributes={'charSpace': '0', 'linePitch': '240', 'type': 'default'})
 
-    sectPr.append(type)
-    sectPr.append(pgSz)
-    sectPr.append(pgMar)
-    sectPr.append(pgNumType)
-    sectPr.append(formProt)
-    sectPr.append(textDirection)
-    sectPr.append(docGrid)
+    if not settings:
+        settings = PAGESETTINGS
+
+    for settingname, settingattrs in settings.iteritems():
+        sectPr.append( makeelement(settingname, attributes=settingattrs))
 
     docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
     docbody.append(sectPr)
