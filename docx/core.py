@@ -1,0 +1,909 @@
+#!/usr/bin/env python2.6
+# -*- coding: utf-8 -*-
+'''
+Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
+
+Part of Python's docx module - http://github.com/mikemaccana/python-docx
+See LICENSE for licensing information.
+'''
+
+from copy import deepcopy
+import logging
+from lxml import etree
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+
+import zipfile
+import shutil
+from distutils import dir_util
+import re
+import time
+import os
+from os.path import join, basename
+from StringIO import StringIO
+
+from utils import findTypeParent
+from metadata import nsprefixes
+
+log = logging.getLogger(__name__)
+
+# Record template directory's location which is just 'template' for a docx
+# developer or 'site-packages/docx-template' if you have installed docx
+TEMPLATE_DIR = join(os.path.dirname(__file__), 'docx-template') # installed
+if not os.path.isdir(TEMPLATE_DIR):
+    TEMPLATE_DIR = join(os.path.dirname(__file__), 'template') # dev
+
+TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
+
+# All Word prefixes / namespace matches used in document.xml & core.xml.
+# LXML doesn't actually use prefixes (just the real namespace) , but these
+# make it easier to copy Word output more easily.
+nsprefixes = {
+    # Text Content
+    'mv': 'urn:schemas-microsoft-com:mac:vml',
+    'mo': 'http://schemas.microsoft.com/office/mac/office/2008/main',
+    've': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+    'o': 'urn:schemas-microsoft-com:office:office',
+    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    'm': 'http://schemas.openxmlformats.org/officeDocument/2006/math',
+    'v': 'urn:schemas-microsoft-com:vml',
+    'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+    'w10': 'urn:schemas-microsoft-com:office:word',
+    'wne': 'http://schemas.microsoft.com/office/word/2006/wordml',
+    # Drawing
+    'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+    'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+    # Properties (core and extended)
+    'cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
+    'dc': 'http://purl.org/dc/elements/1.1/',
+    'dcterms': 'http://purl.org/dc/terms/',
+    'dcmitype': 'http://purl.org/dc/dcmitype/',
+    'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'ep': 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+    # Content Types (we're just making up our own namespaces here to save time)
+    'ct': 'http://schemas.openxmlformats.org/package/2006/content-types',
+    # Package Relationships (we're just making up our own namespaces here to save time)
+    'pr': 'http://schemas.openxmlformats.org/package/2006/relationships',
+    }
+
+FORMAT = {
+        "letter": {"w": '12240', "h": '15840'},
+        "a4": {"w": '11906', "h": '16838'},
+        "a5": {"w": '8391', "h": '11906'},
+        }
+
+PAGESETTINGS = {
+    'pgMar': {'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
+                        'left': '1138', 'right': '1138', 'top': '1138'},
+    'type': {'val': 'nextPage'},
+    'pgSz': FORMAT['a4'],
+    'pgNumType': {'fmt': 'decimal'},
+    'formProt': {'val': 'false'},
+    'textDirection': {'val': 'lrTb'},
+    'docGrid': {'charSpace': '0', 'linePitch': '240', 'type': 'default'}
+    }
+
+image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
+
+
+class Docx(object):
+    treesandfiles = {document: 'word/document.xml',
+                     coreprops: 'docProps/core.xml',
+                     appprops: 'docProps/app.xml',
+                     contenttypes: '[Content_Types].xml',
+                     websettings: 'word/webSettings.xml',
+                     wordrelationships: 'word/_rels/document.xml.rels'}
+
+    def __init__(self, file=None)
+        self._orig_docx = file
+        self._tmp_file = NamedTemporaryFile()
+
+        if file is None:
+            file = self.__generate_empty_docx()
+
+        shutil.copyfile(file, self._tmp_file.name)
+        self._docx = ZipFile(self._tmp_file.name, mode='a')
+
+        for tree, file in self.trees_and_files.items():
+            self._load_etree(tree, file)
+
+    def append(self, *args, **kwargs):
+        return self.document.append(*args, **kwargs)
+
+    def search(document,search):
+        '''Search a document for a regex, return success / fail result'''
+        result = False
+        searchre = re.compile(search)
+        for element in document.iter():
+            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+                if element.text:
+                    if searchre.search(element.text):
+                        result = True
+        return result
+
+    def replace(document,search,replace):
+        '''Replace all occurences of string with a different string, return updated document'''
+        newdocument = document
+        searchre = re.compile(search)
+        for element in newdocument.iter():
+            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+                if element.text:
+                    if searchre.search(element.text):
+                        element.text = re.sub(search,replace,element.text)
+        return newdocument
+
+    def clean(document):
+        """ Perform misc cleaning operations on documents.
+            Returns cleaned document.
+        """
+
+        newdocument = document
+
+        # Clean empty text and r tags
+        for t in ('t', 'r'):
+            rmlist = []
+            for element in newdocument.iter():
+                if element.tag == '{%s}%s' % (nsprefixes['w'], t):
+                    if not element.text and not len(element):
+                        rmlist.append(element)
+            for element in rmlist:
+                element.getparent().remove(element)
+
+        return newdocument
+
+    def advReplace(document,search,replace,bs=3):
+        '''Replace all occurences of string with a different string, return updated document
+
+        This is a modified version of python-docx.replace() that takes into
+        account blocks of <bs> elements at a time. The replace element can only
+        be a string currently. (There is some bug with element replacing)
+
+        What it does:
+        It searches the entire document body for text blocks.
+        Then scan thos text blocks for replace.
+        Since the text to search could be spawned across multiple text blocks,
+        we need to adopt some sort of algorithm to handle this situation.
+        The smaller matching group of blocks (up to bs) is then adopted.
+        If the matching group has more than one block, blocks other than first
+        are cleared and all the replacement text is put on first block.
+
+        Examples:
+        original text blocks : [ 'Hel', 'lo,', ' world!' ]
+        search / replace: 'Hello,' / 'Hi!'
+        output blocks : [ 'Hi!', '', ' world!' ]
+
+        original text blocks : [ 'Hel', 'lo,', ' world!' ]
+        search / replace: 'Hello, world' / 'Hi!'
+        output blocks : [ 'Hi!!', '', '' ]
+
+        original text blocks : [ 'Hel', 'lo,', ' world!' ]
+        search / replace: 'Hel' / 'Hal'
+        output blocks : [ 'Hal', 'lo,', ' world!' ]
+
+        @param instance  document: The original document
+        @param str       search: The text to search for (regexp)
+        @param mixed replace: The replacement text or lxml.etree element to
+                              append, or a list of etree elements
+        @param int       bs: See above
+
+        @return instance The document with replacement applied
+
+        '''
+        # Enables debug output
+        DEBUG = False
+
+        newdocument = document
+
+        # Compile the search regexp
+        searchre = re.compile(search)
+
+        # Will match against searchels. Searchels is a list that contains last
+        # n text elements found in the document. 1 < n < bs
+        searchels = []
+
+        for element in newdocument.iter():
+            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+                if element.text:
+                    # Add this element to searchels
+                    searchels.append(element)
+                    if len(searchels) > bs:
+                        # Is searchels is too long, remove first elements
+                        searchels.pop(0)
+
+                    found = False
+                    txtsearch = ''
+                    for el in searchels:
+                        txtsearch += el.text
+
+                    # Searcs for the text in the whole txtsearch
+                    match = searchre.search(txtsearch)
+                    if match:
+                        # I've found something :)
+                        # The end of match must be in the last element
+                        # |----|---s|omet|hing|!---|
+                        # Now we need to find the element containing the start of the match
+                        # Search all combinations, of searchels, starting from
+                        # smaller up to bigger ones
+                        # s = search start
+                        # e = element IDs to merge
+                        els_len = len(searchels)
+                        for s in reversed(range(els_len)):
+                            txtsearch = ''
+                            e = range(s,els_len)
+                            for k in e:
+                                txtsearch += searchels[k].text
+                            match = searchre.search(txtsearch)
+                            if match:
+                                found = True
+                                break
+                        # Now we have found the start and ending element of the match
+                        # |  0 |  1 |  2 |  3 |  4 |
+                        # |----|---s|omet|hing|!---|
+                        # e = [1,2,3,4]
+                        if DEBUG:
+                            log.debug("Found element!")
+                            log.debug("Search regexp: %s", searchre.pattern)
+                            log.debug("Requested replacement: %s", replace)
+                            log.debug("Matched text: %s", txtsearch)
+                            log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                            log.debug("Matched at position: %s", match.start())
+                            log.debug( "matched in elements: %s", e)
+                            if isinstance(replace, etree._Element):
+                                log.debug("Will replace with XML CODE")
+                            elif isinstance(replace (list, tuple)):
+                                log.debug("Will replace with LIST OF ELEMENTS")
+                            else:
+                                log.debug("Will replace with:", re.sub(search,replace,txtsearch))
+
+                        try:
+                            # for text, we want to replace at <w:r> level
+                            # because there will be new lines
+                            # <w:p>
+                            #     <w:pPr></w:pPr>
+                            #     <w:r>
+                            #         <w:rPr></w:rPr>
+                            #         <w:t>[PREFIX]</w:t>
+                            #     </w:r>
+                            #     <w:r>
+                            #         <w:rPr></w:rPr>
+                            #         <w:t>[REPLACE_LINE_1]</w:t>
+                            #         <w:br/>
+                            #     </w:r>
+                            #     <w:r>
+                            #         <w:rPr></w:rPr>
+                            #         <w:t>[REPLACE_LINE_2]</w:t>
+                            #     </w:r>
+                            #     <w:r>
+                            #         <w:rPr></w:rPr>
+                            #         <w:t>[SUFIX]</w:t>
+                            #     </w:r>
+                            # </w:p>
+                            txt_prefix = txtsearch[:match.start()]
+                            txt_sufix = txtsearch[match.end():]
+                            if not isinstance(replace, (list, tuple)):
+                                replace = [replace]
+                            # get the first matching <w:r> element and copy it
+                            # because we want to keep its property <w:rPr> for the replaced content
+                            org_first_r = findTypeParent(searchels[e[0]], '{%s}r' % nsprefixes['w'])
+                            first_r = deepcopy(org_first_r)
+                            # and remove <w:br> if there is any
+                            # because these <w:br>s will be added accordingly later
+                            el_to_delete = first_r.find('{%s}br' % nsprefixes['w'])
+                            if not el_to_delete == None:
+                                first_r.remove(el_to_delete)
+                            template_r = deepcopy(first_r)
+                            # empty the text
+                            el_to_delete = template_r.find('{%s}t' % nsprefixes['w'])
+                            if not el_to_delete == None:
+                                template_r.remove(el_to_delete)
+                            p =  org_first_r.getparent()
+                            insindex = p.index(org_first_r)
+
+                            # insert the prefix
+                            p.insert(insindex, first_r)
+                            insindex += 1
+                            first_r.find('{%s}t' % nsprefixes['w']).text = txt_prefix
+                            # insert the runs to replace
+                            for r in replace:
+                                if isinstance(r, etree._Element):
+                                    # TODO: there was some bug in element replacement
+                                    # delete the function currently
+                                    # but replacing some text with some picture is really useful
+                                    # will add element replacing later
+                                    continue
+                                lines = r.split('\n')
+                                for line in lines[:-1]:
+                                    new_r = deepcopy(template_r)
+                                    new_r.append(makeelement('t',tagtext=line))
+                                    new_r.append(makeelement('br'))
+                                    p.insert(insindex, new_r)
+                                    insindex += 1
+                                # the last line of the segment
+                                new_r = deepcopy(template_r)
+                                new_r.append(makeelement('t',tagtext=lines[-1]))
+                                p.insert(insindex, new_r)
+                                insindex += 1
+                            # copy the last matching <w:r> element
+                            # because it may be the same as the first <w:r> element
+                            last_r = deepcopy(findTypeParent(searchels[e[-1]], '{%s}r' % nsprefixes['w']))
+                            p.insert(insindex, last_r)
+                            insindex += 1
+                            last_r.find('{%s}t' % nsprefixes['w']).text = txt_sufix
+
+                            # there may be 1 matching element, or multiple elements combined
+                            # anyway, remove them all since we have safely copied the prefix
+                            # and sufix and inserted replace in between
+                            for i in e:
+                                # maybe the element cannot be removed
+                                # so, anyway, empty them first in case I cannot remove them
+                                searchels[i].text = ''
+                                try:
+                                    p.remove(findTypeParent(searchels[i], '{%s}r' % nsprefixes['w']))
+                                except Exception, e:
+                                    log.exception(e)
+
+                            return newdocument
+                        except Extension, e:
+                            log.exception(e)
+        return newdocument
+
+    # check if used ..
+    def _get_etree(self, xmldoc):
+        return etree.fromstring(self._docx.read(xmldoc))
+
+    # check if used ..
+    def _load_etree(self, name, xmldoc):
+        setattr(name, xmldoc)
+
+        """
+    def createdoc(document, coreprops, appprops, contenttypes, websettings,
+                    wordrelationships, output, settings=None, template_dir=None):
+
+        '''Save a modified document'''
+        if not template_dir:
+            template_dir = TEMP_TEMPLATE_DIR
+        assert os.path.isdir(template_dir)
+
+        if not output:
+            output = StringIO()
+
+        docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
+
+        # save images referred in relationshiplist, adjust relationshiplist
+    #    _relationshiplist = []
+    #    for r_type, target in relationshiplist:
+    #        if r_type == image_relationship:
+    #            path = 'media/' + basename(target)
+    #            docxfile.write(target, 'word/' + path)
+    #            _relationshiplist += [[r_type, path]]
+    #        else:
+    #            _relationshiplist += [[r_type, target]]
+
+        # Move to the template data path
+        prev_dir = os.path.abspath('.') # save previous working dir
+        os.chdir(template_dir)
+
+    #    _wordrelationships = wordrelationships(_relationshiplist)
+
+        # Add page settings
+        document = add_page_settings(document, settings)
+
+        # Serialize our trees into out zip file
+
+
+        for tree in treesandfiles:
+            log.info('Saving: ' + treesandfiles[tree])
+            treestring = etree.tostring(tree, pretty_print=True)
+            docxfile.writestr(treesandfiles[tree], treestring)
+
+        # Add & compress support files
+        files_to_ignore = ['.DS_Store'] # nuisance from some os's
+        for dirpath, dirnames, filenames in os.walk('.'):
+            for filename in filenames:
+                if filename in files_to_ignore:
+                    continue
+                templatefile = join(dirpath, filename)
+                archivename = templatefile[2:]
+                log.info('Saving: %s', archivename)
+                docxfile.write(templatefile, archivename)
+
+        log.info('Saved new file to : %r', output or 'Direct Output')
+        os.chdir(prev_dir) # restore previous working dir
+        docxfile.close()
+
+        return docxfile, output
+
+    def savedocx(document, coreprops, appprops, contenttypes, websettings,
+                    wordrelationships, output, settings=None, template_dir=None):
+
+        docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                    websettings, wordrelationships, output, settings, template_dir)
+
+        return docxfile
+
+    def djangodocx(document, coreprops, appprops, contenttypes, websettings,
+                    wordrelationships, output=None, settings=None, template_dir=None):
+
+        docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                    websettings, wordrelationships, output, settings, template_dir)
+
+        docx_zip = output.getvalue()
+        output.close()
+
+        return docx_zip
+        """
+
+    #need to be rewrite with django/pagesettings see comments
+    def save(self, dest=None):
+        docxfile = self._docx
+
+        # Serialize our trees into our zip file
+        for tree, dest_file in self.trees_and_files.items():
+            log.info('Saving: ' + dest_file)
+            docxfile.writestr(dest_file, getattr(self, tree))
+
+        log.info('Saved new file to: %r', dest)
+        docxfile.close()
+
+        if dest is not None:
+            shutil.copyfile(self._tmp_file, dest)
+
+    # check if used ..
+    def copy(self):
+        tmp = NamedTemporaryFile()
+        self.save(tmp.name)
+        docx = self.__class__(tmp.name)
+        docx._orig_docx = self._orig_docx
+        tmp.close()
+        return docx
+
+    # check if used ..
+    def __del__(self):
+        try:
+            self.__empty_docx.close()
+        except AttributeError:
+            pass
+        self._docx.close()
+        self._tmp_file.close()
+
+    # check if used ..
+    def __generate_empty_docx(self):
+        self.__empty_docx = NamedTemporaryFile()
+        loc = self.__empty_docx.name
+
+        docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
+
+        # Move to the template data path
+        prev_dir = os.path.abspath('.') # save previous working dir
+        os.chdir(template_dir)
+
+        # Add & compress support files
+        files_to_ignore = ['.DS_Store'] # nuisance from some os's
+        for dirpath,dirnames,filenames in os.walk('.'):
+            for filename in filenames:
+                if filename in files_to_ignore:
+                    continue
+                templatefile = join(dirpath,filename)
+                archivename = templatefile[2:]
+                log.info('Saving: %s', archivename)
+                docxfile.write(templatefile, archivename)
+        log.info('Saved new file to: %r', loc)
+        docxfile.close()
+        os.chdir(prev_dir) # restore previous working dir
+
+        return loc
+
+    # check if used ..
+    @property
+    def text(self):
+        '''Return the raw text of a document, as a list of paragraphs.'''
+        document = self.document
+        paratextlist=[]
+        # Compile a list of all paragraph (p) elements
+        paralist = []
+        for element in document.iter():
+            # Find p (paragraph) elements
+            if element.tag == '{'+nsprefixes['w']+'}p':
+                paralist.append(element)
+        # Since a single sentence might be spread over multiple text elements, iterate through each
+        # paragraph, appending all text (t) children to that paragraphs text.
+        for para in paralist:
+            paratext=u''
+            # Loop through each paragraph
+            for element in para.iter():
+                # Find t (text) elements
+                if element.tag == '{'+nsprefixes['w']+'}t':
+                    if element.text:
+                        paratext = paratext+element.text
+            # Add our completed paragraph text to the list of paragraph text
+            if not len(paratext) == 0:
+                paratextlist.append(paratext)
+        return paratextlist
+
+
+"""
+def opendocx(file):
+    '''Open a docx file, return a document XML tree'''
+    mydoc = zipfile.ZipFile(file)
+    xmlcontent = mydoc.read('word/document.xml')
+    document = etree.fromstring(xmlcontent)
+    return document
+
+def opendocxheader(file):
+    '''Open a docx file, return the header XML tree'''
+    mydoc = zipfile.ZipFile(file)
+    try:
+        xmlcontent = mydoc.read('word/header2.xml')
+    except :
+        xmlcontent = mydoc.read('word/header1.xml')
+
+    header = etree.fromstring(xmlcontent)
+    return header
+
+def newdocument():
+    build_temp_template_layout()
+
+    document = makeelement('document')
+    document.append(makeelement('body'))
+    return document
+
+def build_temp_template_layout():
+    clear_temp_template_layout()
+    dir_util.copy_tree(TEMPLATE_DIR, TEMP_TEMPLATE_DIR)
+
+def clear_temp_template_layout():
+    if os.path.exists(TEMP_TEMPLATE_DIR):
+        if os.path.isdir(TEMP_TEMPLATE_DIR):
+            shutil.rmtree(TEMP_TEMPLATE_DIR)
+        else:
+            os.remove(TEMP_TEMPLATE_DIR)
+
+
+
+
+def getDefaultContentTypes():
+    # FIXME - doesn't quite work...read from string as temp hack...
+    #types = makeelement('Types',nsprefix='ct')
+    types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
+    parts = {
+        '/word/theme/theme1.xml':'application/vnd.openxmlformats-officedocument.theme+xml',
+        '/word/fontTable.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml',
+        '/docProps/core.xml':'application/vnd.openxmlformats-package.core-properties+xml',
+        '/docProps/app.xml':'application/vnd.openxmlformats-officedocument.extended-properties+xml',
+        '/word/document.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml',
+        '/word/settings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml',
+        '/word/numbering.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml',
+        '/word/styles.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml',
+        '/word/webSettings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml'
+        }
+    for part in parts:
+        types.append(makeelement('Override',nsprefix=None,attributes={'PartName':part,'ContentType':parts[part]}))
+    # Add support for filetypes
+    filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml','xml':'application/xml','jpeg':'image/jpeg','gif':'image/gif','png':'image/png'}
+    for extension in filetypes:
+        types.append(makeelement('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
+    return types
+
+def getContentTypes(file=None):
+    '''Get Content Types file from a given Word document'''
+    if file and os.path.isfile(file):
+        mydoc = zipfile.ZipFile(file)
+        xmlcontent = mydoc.read('[Content_Types].xml')
+        types = etree.fromstring(xmlcontent)
+        return types
+    else:
+        return getDefaultContentTypes()
+
+
+
+
+
+
+def findElementByText(document,search):
+    '''Search a document for a regex, return the first matching text element'''
+    res_element = None
+    searchre = re.compile(search)
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                if searchre.search(element.text):
+                    res_element = element
+                    return res_element
+    return res_element
+
+
+
+
+
+
+
+def advSearch(document, search, bs=3):
+    '''Return set of all regex matches
+
+    This is an advanced version of python-docx.search() that takes into
+    account blocks of <bs> elements at a time.
+
+    What it does:
+    It searches the entire document body for text blocks.
+    Since the text to search could be spawned across multiple text blocks,
+    we need to adopt some sort of algorithm to handle this situation.
+    The smaller matching group of blocks (up to bs) is then adopted.
+    If the matching group has more than one block, blocks other than first
+    are cleared and all the replacement text is put on first block.
+
+    Examples:
+    original text blocks : [ 'Hel', 'lo,', ' world!' ]
+    search : 'Hello,'
+    output blocks : [ 'Hello,' ]
+
+    original text blocks : [ 'Hel', 'lo', ' __', 'name', '__!' ]
+    search : '(__[a-z]+__)'
+    output blocks : [ '__name__' ]
+
+    @param instance  document: The original document
+    @param str       search: The text to search for (regexp)
+                          append, or a list of etree elements
+    @param int       bs: See above
+
+    @return set      All occurences of search string
+
+    '''
+
+    # Compile the search regexp
+    searchre = re.compile(search)
+
+    matches = []
+
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                # Add this element to searchels
+                searchels.append(element)
+                if len(searchels) > bs:
+                    # Is searchels is too long, remove first elements
+                    searchels.pop(0)
+
+                found = False
+                txtsearch = ''
+                for el in searchels:
+                    txtsearch += el.text
+
+                # Searcs for the text in the whole txtsearch
+                match = searchre.search(txtsearch)
+                if match:
+                    # I've found something :)
+                    # The end of match must be in the last element
+                    # |----|---s|omet|hing|!---|
+                    # Now we need to find the element containing the start of the match
+                    # Search all combinations, of searchels, starting from
+                    # smaller up to bigger ones
+                    # s = search start
+                    # e = element IDs to merge
+                    els_len = len(searchels)
+                    for s in reversed(range(els_len)):
+                        txtsearch = ''
+                        e = range(s,els_len)
+                        for k in e:
+                            txtsearch += searchels[k].text
+                        match = searchre.search(txtsearch)
+                        if match:
+                            found = True
+                            matches.append(match.group())
+                    # Now we have found the start and ending element of the match
+                    # |  0 |  1 |  2 |  3 |  4 |
+                    # |----|---s|omet|hing|!---|
+                    # e = [1,2,3,4]
+    return set(matches)
+
+
+def advFindElementByText(document, search, bs=3):
+    '''
+    This is an advanced version of python-docx.findElementByText() that takes into
+    account blocks of <bs> elements at a time.
+
+    @param instance  document: The original document
+    @param str       search: The text to search for (regexp)
+                          append, or a list of etree elements
+    @param int       bs: See above
+
+    @return list      The element set contains the search when combined
+    '''
+
+    # Compile the search regexp
+    searchre = re.compile(search)
+
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                # Add this element to searchels
+                searchels.append(element)
+                if len(searchels) > bs:
+                    # Is searchels is too long, remove first elements
+                    searchels.pop(0)
+
+                found = False
+                txtsearch = ''
+                for el in searchels:
+                    txtsearch += el.text
+
+                # Searcs for the text in the whole txtsearch
+                match = searchre.search(txtsearch)
+                if match:
+                    # I've found something :)
+                    # The end of match must be in the last element
+                    # |----|---s|omet|hing|!---|
+                    # Now we need to find the element containing the start of the match
+                    # Search all combinations, of searchels, starting from
+                    # smaller up to bigger ones
+                    # s = search start
+                    # e = element IDs to merge
+                    els_len = len(searchels)
+                    for s in reversed(range(els_len)):
+                        txtsearch = ''
+                        e = range(s,els_len)
+                        for k in e:
+                            txtsearch += searchels[k].text
+                        match = searchre.search(txtsearch)
+                        if match:
+                            found = True
+                            return searchels[s:]
+                    # Now we have found the start and ending element of the match
+                    # |  0 |  1 |  2 |  3 |  4 |
+                    # |----|---s|omet|hing|!---|
+                    # e = [1,2,3,4]
+    return None
+
+
+
+
+def getdocumenttext(document):
+    '''Return the raw text of a document, as a list of paragraphs.'''
+    paratextlist=[]
+    # Compile a list of all paragraph (p) elements
+    paralist = []
+    for element in document.iter():
+        # Find p (paragraph) elements
+        if element.tag == '{'+nsprefixes['w']+'}p':
+            paralist.append(element)
+    # Since a single sentence might be spread over multiple text elements, iterate through each
+    # paragraph, appending all text (t) children to that paragraphs text.
+    for para in paralist:
+        paratext=u''
+        # Loop through each paragraph
+        for element in para.iter():
+            # Find t (text) elements
+            if element.tag == '{'+nsprefixes['w']+'}t':
+                if element.text:
+                    paratext = paratext+element.text
+            elif element.tag == '{'+nsprefixes['w']+'}tab':
+                paratext = paratext + '\t'
+        # Add our completed paragraph text to the list of paragraph text
+        if not len(paratext) == 0:
+            paratextlist.append(paratext)
+    return paratextlist
+
+def coreproperties(title,subject,creator,keywords,lastmodifiedby=None):
+    '''Create core properties (common document properties referred to in the 'Dublin Core' specification).
+    See appproperties() for other stuff.'''
+    coreprops = makeelement('coreProperties',nsprefix='cp')
+    coreprops.append(makeelement('title',tagtext=title,nsprefix='dc'))
+    coreprops.append(makeelement('subject',tagtext=subject,nsprefix='dc'))
+    coreprops.append(makeelement('creator',tagtext=creator,nsprefix='dc'))
+    coreprops.append(makeelement('keywords',tagtext=','.join(keywords),nsprefix='cp'))
+    if not lastmodifiedby:
+        lastmodifiedby = creator
+    coreprops.append(makeelement('lastModifiedBy',tagtext=lastmodifiedby,nsprefix='cp'))
+    coreprops.append(makeelement('revision',tagtext='1',nsprefix='cp'))
+    coreprops.append(makeelement('category',tagtext='Examples',nsprefix='cp'))
+    coreprops.append(makeelement('description',tagtext='Examples',nsprefix='dc'))
+    currenttime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Document creation and modify times
+    # Prob here: we have an attribute who name uses one namespace, and that
+    # attribute's value uses another namespace.
+    # We're creating the lement from a string as a workaround...
+    for doctime in ['created','modified']:
+        coreprops.append(etree.fromstring('''<dcterms:'''+doctime+''' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">'''+currenttime+'''</dcterms:'''+doctime+'''>'''))
+        pass
+    return coreprops
+
+def appproperties():
+    '''Create app-specific properties. See docproperties() for more common document properties.'''
+    appprops = makeelement('Properties',nsprefix='ep')
+    appprops = etree.fromstring(
+    '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
+    props = {
+            'Template':'Normal.dotm',
+            'TotalTime':'6',
+            'Pages':'1',
+            'Words':'83',
+            'Characters':'475',
+            'Application':'Microsoft Word 12.0.0',
+            'DocSecurity':'0',
+            'Lines':'12',
+            'Paragraphs':'8',
+            'ScaleCrop':'false',
+            'LinksUpToDate':'false',
+            'CharactersWithSpaces':'583',
+            'SharedDoc':'false',
+            'HyperlinksChanged':'false',
+            'AppVersion':'12.0000',
+            }
+    for prop in props:
+        appprops.append(makeelement(prop,tagtext=props[prop],nsprefix=None))
+    return appprops
+
+def websettings():
+    '''Generate websettings'''
+    web = makeelement('webSettings')
+    web.append(makeelement('allowPNG'))
+    web.append(makeelement('doNotSaveAsSingleFile'))
+    return web
+
+def getDefaultRelationships():
+    '''Generate a default Word relationships file'''
+    # Default list of relationships
+    relationshiplist = [
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
+    ]
+    relationships = etree.fromstring(
+    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        </Relationships>'''
+    )
+
+    for idx, relationship in enumerate(relationshiplist):
+        # Relationship IDs (rId) start at 1.
+        element = makeelement('Relationship', attributes={'Id': 'rId' + str(idx + 1),
+                              'Type': relationship[0],'Target': relationship[1]}, nsprefix=None)
+        if relationship[0] == hlink_relationship:
+            element.attrib['TargetMode'] = 'External'
+        relationships.append(element)
+
+    return relationships
+
+def getRelationships(file=None, prefix="document"):
+    '''Get a Word relationships file from a given Word document'''
+    if file and os.path.isfile(file):
+        mydoc = zipfile.ZipFile(file)
+        xmlcontent = mydoc.read('word/_rels/{0}.xml.rels'.format(prefix))
+        relationships = etree.fromstring(xmlcontent)
+        return relationships
+    else:
+        return getDefaultRelationships()
+
+
+
+
+
+def add_page_settings(document, settings):
+    ''' Add custom page settings '''
+    sectPr = makeelement('sectPr')
+
+    if not settings:
+        settings = PAGESETTINGS
+
+    for settingname, settingattrs in settings.iteritems():
+        sectPr.append( makeelement(settingname, attributes=settingattrs))
+
+    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody.append(sectPr)
+
+    return document
+"""
