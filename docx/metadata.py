@@ -6,15 +6,6 @@ PACKAGE_DIR = abspath(dirname(__file__))
 
 TEMPLATE_DIR = join(PACKAGE_DIR, 'template')
 
-# Record template directory's location which is just 'template' for a docx
-# developer or 'site-packages/docx-template' if you have installed docx
-#TEMPLATE_DIR = join(os.path.dirname(__file__), 'docx-template') # installed
-#if not os.path.isdir(TEMPLATE_DIR):
-    #TEMPLATE_DIR = join(os.path.dirname(__file__), 'template') # dev
-#
-#TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
-
-
 image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 

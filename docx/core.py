@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.6
 # -*- coding: utf-8 -*-
 '''
 Open and modify Microsoft Word 2007 docx files (called 'OpenXML'
@@ -14,14 +13,13 @@ import logging
 from lxml import etree
 from dateutil import parser as dateParser
 
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
 import shutil
 import re
-import os
-from os.path import join
+
 
 from tempfile import NamedTemporaryFile
-from .utils import findTypeParent
+from .utils import findTypeParent, dir_to_docx
 
 from .metadata import nsprefixes, TEMPLATE_DIR
 from .elements import makeelement
@@ -38,14 +36,14 @@ class Docx(object):
                      "wordrelationships": 'word/_rels/document.xml.rels'}
 
     def __init__(self, outfile=None):
-		create_new_doc = f is None
+        create_new_doc = outfile is None
         self._orig_docx = outfile
         self._tmp_file = NamedTemporaryFile()
 
         if create_new_doc:
             outfile = self.__generate_empty_docx()
 
-        shutil.copyfile(f, self._tmp_file.name)
+        shutil.copyfile(outfile, self._tmp_file.name)
         self._docx = ZipFile(self._tmp_file.name, mode='a')
 
         for tree, outfile in self.trees_and_files.items():
@@ -61,25 +59,19 @@ class Docx(object):
         # Make getters and setter for the core properties
         def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
             getter = lambda self: to_python(self._get_coreprop_val(prop))
-            setter = lambda self, val: to_str(self._set_coreprop_val(prop, val))
-            setattr(self, prop, property(getter, setter))
+            setter = lambda self, val: self._set_coreprop_val(prop, to_str(val))
+            setattr(cls, prop, property(getter, setter))
 
         for prop in ['title', 'subject', 'creator', 'description',
-
                      'lastModifiedBy', 'revision']:
             set_coreprop_property(prop)
 
         for datetimeprop in ['created', 'modified']:
-
             set_coreprop_property(datetimeprop,
                 to_python=dateParser.parse,
-                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat')
-                                        else dateParser.parse(obj).isoformat()
-            )
-
-            set_coreprop_property(datetimeprop,
-                to_python=dateutil.parser.parse,
-                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+                to_str=lambda obj: (obj.isoformat()
+                                    if hasattr(obj, 'isoformat')
+                                    else dateParser.parse(obj).isoformat())
             )
         return super(Docx, cls).__new__(cls, *args, **kwargs)
 
@@ -87,8 +79,8 @@ class Docx(object):
         return self.docbody.append(*args, **kwargs)
 
     def search(self, search):
-        document = self.docbody
         '''Search a document for a regex, return success / fail result'''
+        document = self.docbody
         result = False
         searchre = re.compile(search)
         for element in document.iter():
@@ -332,107 +324,95 @@ class Docx(object):
     def _load_etree(self, name, xmldoc):
         setattr(self, name, self._get_etree(xmldoc))
 
-    def template(self, cx):
+    def template(self, cx, max_blocks=5, raw_document=False):
+        """
+        Accepts a context dictionary (cx) and looks for the dict keys wrapped
+        in {{key}}. Replaces occurances with the correspoding value from the
+        cx dictionary.
+
+        example:
+            with the context...
+                cx = {
+                    'name': 'James',
+                    'lang': 'English'
+                }
+
+            ...and a docx file containing:
+
+                Hi! My name is {{name}} and I speak {{lang}}
+
+            Calling `docx.template(cx)` will return a new docx instance (the
+            original is not modified) that looks like:
+
+                Hi! My name is James and I speak English
+
+            Note: the template must not have spaces in the curly braces unless
+            the dict key does (i.e., `{{ name }}` will not work unless your
+            dictionary has `{" name ": ...}`)
+
+        The `raw_document` argument accepts a boolean, which (if True) will
+        treat the word/document.xml file as a text template (rather than only
+        replacing text that is visible in the document via a word processor)
+
+        If you pass `max_blocks=None` you will cause the template function to
+        use `docx.replace()` rather than `docx.advanced_replace()`.
+
+        When `max_blocks` is a number, it is passed to the advanced replace
+        method as is.
+        """
         output = self.copy()
+
+        if raw_document:
+            raw_doc = etree.tostring(output.document)
+
         for key, val in cx.items():
             key = "{{%s}}" % key
-            output.replace(key, val)
+            if raw_document:
+                raw_doc = raw_doc.replace(key, unicode(val))
+            elif max_blocks is None:
+                output.replace(key, unicode(val))
+            else:
+                output.advanced_replace(key, val, max_blocks=max_blocks)
+
+        if raw_document:
+            output.document = etree.fromstring(raw_doc)
+
         return output
-        """
-    def createdoc(document, coreprops, appprops, contenttypes, websettings,
-                    wordrelationships, output, settings=None, template_dir=None):
-
-        '''Save a modified document'''
-        if not template_dir:
-            template_dir = TEMP_TEMPLATE_DIR
-        assert os.path.isdir(template_dir)
-
-        if not output:
-            output = StringIO()
-
-        docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
-
-        # save images referred in relationshiplist, adjust relationshiplist
-    #    _relationshiplist = []
-    #    for r_type, target in relationshiplist:
-    #        if r_type == image_relationship:
-    #            path = 'media/' + basename(target)
-    #            docxfile.write(target, 'word/' + path)
-    #            _relationshiplist += [[r_type, path]]
-    #        else:
-    #            _relationshiplist += [[r_type, target]]
-
-        # Move to the template data path
-        prev_dir = os.path.abspath('.') # save previous working dir
-        os.chdir(template_dir)
-
-    #    _wordrelationships = wordrelationships(_relationshiplist)
-
-        # Add page settings
-        document = add_page_settings(document, settings)
-
-        # Serialize our trees into out zip file
-
-
-        for tree in treesandfiles:
-            log.info('Saving: ' + treesandfiles[tree])
-            treestring = etree.tostring(tree, pretty_print=True)
-            docxfile.writestr(treesandfiles[tree], treestring)
-
-        # Add & compress support files
-        files_to_ignore = ['.DS_Store'] # nuisance from some os's
-        for dirpath, dirnames, filenames in os.walk('.'):
-            for filename in filenames:
-                if filename in files_to_ignore:
-                    continue
-                templatefile = join(dirpath, filename)
-                archivename = templatefile[2:]
-                log.info('Saving: %s', archivename)
-                docxfile.write(templatefile, archivename)
-
-        log.info('Saved new file to : %r', output or 'Direct Output')
-        os.chdir(prev_dir) # restore previous working dir
-        docxfile.close()
-
-        return docxfile, output
-
-    def savedocx(document, coreprops, appprops, contenttypes, websettings,
-                    wordrelationships, output, settings=None, template_dir=None):
-
-        docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
-                    websettings, wordrelationships, output, settings, template_dir)
-
-        return docxfile
-
-    def djangodocx(document, coreprops, appprops, contenttypes, websettings,
-                    wordrelationships, output=None, settings=None, template_dir=None):
-
-        docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
-                    websettings, wordrelationships, output, settings, template_dir)
-
-        docx_zip = output.getvalue()
-        output.close()
-
-        return docx_zip
-        """
 
     #need to be rewrite with django/pagesettings see comments
     def save(self, dest=None):
         self.modified = datetime.utcnow()
-        docxfile = self._docx
+        outf = NamedTemporaryFile()
+        out_zip = ZipFile(outf.name, mode='w')
+
+        orig_contents = self._docx.namelist()
+        modified_contents = self.trees_and_files.values()
 
         # Serialize our trees into our zip file
         for tree, dest_file in self.trees_and_files.items():
             log.info('Saving: ' + dest_file)
-            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree),
+            out_zip.writestr(dest_file, etree.tostring(getattr(self, tree),
                                                             pretty_print=True))
 
-        log.info('Saved new file to: %r', dest)
-        docxfile.close()
+        for dest_file in set(orig_contents) - set(modified_contents):
+            out_zip.writestr(dest_file, self._docx.read(dest_file))
+
+
+        out_zip.close()
 
         if dest is not None:
-            shutil.copyfile(self._tmp_file.name, dest)
-        return docxfile
+            log.info('Saved new file to: %r', dest)
+            shutil.copyfile(outf.name, dest)
+            outf.close()
+        else:
+            log.info('File saved')
+            self._docx.close()
+            shutil.copyfile(outf.name, self._tmp_file.name)
+
+            # reopen the file so it can continue to be used
+            self._docx = ZipFile(self._tmp_file.name, mode='a')
+
+        #return outf.name  # for 'djangodoc' style
 
     # check if used ..
     def copy(self):
@@ -453,7 +433,10 @@ class Docx(object):
         self._tmp_file.close()
 
     def _get_coreprop(self, tagname):
-        return self.coreprops.xpath("*[local-name()='title']")[0]
+        try:
+            return self.coreprops.xpath("*[local-name()='%s']" % tagname)[0]
+        except IndexError:
+            return None
 
     def _get_coreprop_val(self, tagname):
         return self._get_coreprop(tagname).text
@@ -466,25 +449,27 @@ class Docx(object):
         self.__empty_docx = NamedTemporaryFile()
         loc = self.__empty_docx.name
 
-        docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
+        #docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
+#
+         ##Move to the template data path
+        #prev_dir = os.path.abspath('.')  # save previous working dir
+        #os.chdir(TEMPLATE_DIR)
+#
+        ## Add & compress support files
+        #files_to_ignore = ['.DS_Store']  # nuisance from some os's
+        #for dirpath, dirnames, filenames in os.walk('.'):
+            #for filename in filenames:
+                #if filename in files_to_ignore:
+                    #continue
+                #templatefile = join(dirpath, filename)
+                #archivename = templatefile[2:]
+                #log.info('Saving: %s', archivename)
+                #docxfile.write(templatefile, archivename)
+        #log.info('Saved new file to: %r', loc)
+        #docxfile.close()
+        #os.chdir(prev_dir)  # restore previous working dir
 
-        # Move to the template data path
-        prev_dir = os.path.abspath('.')  # save previous working dir
-        os.chdir(TEMPLATE_DIR)
-
-        # Add & compress support files
-        files_to_ignore = ['.DS_Store']  # nuisance from some os's
-        for dirpath, dirnames, filenames in os.walk('.'):
-            for filename in filenames:
-                if filename in files_to_ignore:
-                    continue
-                templatefile = join(dirpath, filename)
-                archivename = templatefile[2:]
-                log.info('Saving: %s', archivename)
-                docxfile.write(templatefile, archivename)
-        log.info('Saved new file to: %r', loc)
-        docxfile.close()
-        os.chdir(prev_dir) # restore previous working dir
+        dir_to_docx(TEMPLATE_DIR, loc)
 
         return loc
 
@@ -515,8 +500,85 @@ class Docx(object):
                 paratextlist.append(paratext)
         return paratextlist
 
+""" old version keeped for integration """
 
-"""
+def createdoc(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output, settings=None, template_dir=None):
+
+    '''Save a modified document'''
+    if not template_dir:
+        template_dir = TEMP_TEMPLATE_DIR
+    assert os.path.isdir(template_dir)
+
+    if not output:
+        output = StringIO()
+
+    docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
+
+    # save images referred in relationshiplist, adjust relationshiplist
+#    _relationshiplist = []
+#    for r_type, target in relationshiplist:
+#        if r_type == image_relationship:
+#            path = 'media/' + basename(target)
+#            docxfile.write(target, 'word/' + path)
+#            _relationshiplist += [[r_type, path]]
+#        else:
+#            _relationshiplist += [[r_type, target]]
+
+    # Move to the template data path
+    prev_dir = os.path.abspath('.') # save previous working dir
+    os.chdir(template_dir)
+
+#    _wordrelationships = wordrelationships(_relationshiplist)
+
+    # Add page settings
+    document = add_page_settings(document, settings)
+
+    # Serialize our trees into out zip file
+
+
+    for tree in treesandfiles:
+        log.info('Saving: ' + treesandfiles[tree])
+        treestring = etree.tostring(tree, pretty_print=True)
+        docxfile.writestr(treesandfiles[tree], treestring)
+
+    # Add & compress support files
+    files_to_ignore = ['.DS_Store'] # nuisance from some os's
+    for dirpath, dirnames, filenames in os.walk('.'):
+        for filename in filenames:
+            if filename in files_to_ignore:
+                continue
+            templatefile = join(dirpath, filename)
+            archivename = templatefile[2:]
+            log.info('Saving: %s', archivename)
+            docxfile.write(templatefile, archivename)
+
+    log.info('Saved new file to : %r', output or 'Direct Output')
+    os.chdir(prev_dir) # restore previous working dir
+    docxfile.close()
+
+    return docxfile, output
+
+def savedocx(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output, settings=None, template_dir=None):
+
+    docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                websettings, wordrelationships, output, settings, template_dir)
+
+    return docxfile
+
+def djangodocx(document, coreprops, appprops, contenttypes, websettings,
+                wordrelationships, output=None, settings=None, template_dir=None):
+
+    docxfile, output = createdoc(document, coreprops, appprops, contenttypes,
+                websettings, wordrelationships, output, settings, template_dir)
+
+    docx_zip = output.getvalue()
+    output.close()
+
+    return docx_zip
+
+
 def opendocx(file):
     '''Open a docx file, return a document XML tree'''
     mydoc = zipfile.ZipFile(file)
@@ -897,4 +959,3 @@ def add_page_settings(document, settings):
     docbody.append(sectPr)
 
     return document
-"""

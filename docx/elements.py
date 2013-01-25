@@ -3,6 +3,7 @@
 import os
 from os.path import join
 import shutil
+from copy import deepcopy
 
 from lxml import etree
 try:
@@ -40,7 +41,7 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
             else:
                 attributenamespace = ''
         else:
-            attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
+            attributenamespace = '{' + nsprefixes[attrnsprefix] + '}'
 
         for tagattribute in attributes:
             newelement.set(attributenamespace+tagattribute, attributes[tagattribute])

@@ -62,11 +62,13 @@ def table():
         celstyle=[{'fill': "ffffff"}] * len(t)
     ))
 
+def getdoc():
+    return doc
+
 ## utility functions...
-def write_docx(f):
+def write_docx(f=None):
     doc.title = str(meta.get('title', ''))
     doc.subject = str(meta.get('subject', ''))
     doc.creator = str(meta.get('creator', ''))
     doc.keywords = list(meta.get('keywords', []))
-
-    doc.save(f)
+    return doc.save(f)
