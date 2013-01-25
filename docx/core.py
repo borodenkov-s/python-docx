@@ -392,7 +392,7 @@ class Docx(object):
         If you pass `max_blocks=None` you will cause the template function to
         use `docx.replace()` rather than `docx.advanced_replace()`.
 
-        When `max_blocks` is a number, it is passed to the advanced replace
+        When `max_blocks` is a number, it is passed to the advReplace
         method as is.
         """
         output = self.copy()
@@ -407,7 +407,7 @@ class Docx(object):
             elif max_blocks is None:
                 output.replace(key, unicode(val))
             else:
-                output.advanced_replace(key, val, max_blocks=max_blocks)
+                output.advReplace(key, val, max_blocks=max_blocks)
 
         if raw_document:
             output.document = etree.fromstring(raw_doc)
@@ -451,7 +451,8 @@ class Docx(object):
             # reopen the file so it can continue to be used
             self._docx = ZipFile(self._tmp_file.name, mode='a')
 
-        #return outf.name  # for 'djangodoc' style
+        # for 'djangodoc' style, need to return the file object
+        #return outf.name
 
     # check if used ..
     def copy(self):
@@ -487,26 +488,9 @@ class Docx(object):
     def __generate_empty_docx(self):
         self.__empty_docx = NamedTemporaryFile()
         loc = self.__empty_docx.name
+        dir_to_docx(TEMPLATE_DIR, loc)
+        return loc
 
-        #docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
-#
-         ##Move to the template data path
-        #prev_dir = os.path.abspath('.')  # save previous working dir
-        #os.chdir(TEMPLATE_DIR)
-#
-        ## Add & compress support files
-        #files_to_ignore = ['.DS_Store']  # nuisance from some os's
-        #for dirpath, dirnames, filenames in os.walk('.'):
-            #for filename in filenames:
-                #if filename in files_to_ignore:
-                    #continue
-                #templatefile = join(dirpath, filename)
-                #archivename = templatefile[2:]
-                #log.info('Saving: %s', archivename)
-                #docxfile.write(templatefile, archivename)
-        #log.info('Saved new file to: %r', loc)
-        #docxfile.close()
-        #os.chdir(prev_dir)  # restore previous working dir
 
         dir_to_docx(TEMPLATE_DIR, loc)
 
