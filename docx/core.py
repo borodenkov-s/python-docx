@@ -21,7 +21,8 @@ import re
 from tempfile import NamedTemporaryFile
 from .utils import findTypeParent, dir_to_docx
 
-from .metadata import nsprefixes, TEMPLATE_DIR
+from .metadata import nsprefixes, TEMPLATE_DIR, PAGESETTINGS
+from .metadata import FORMAT
 from .elements import makeelement
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,8 @@ class Docx(object):
 
     def __init__(self, outfile=None):
         create_new_doc = outfile is None
+        self.settings = {}
+
         self._orig_docx = outfile
         self._tmp_file = NamedTemporaryFile()
 
@@ -413,7 +416,11 @@ class Docx(object):
 
     #need to be rewrite with django/pagesettings see comments
     def save(self, dest=None):
+        # pre-save ops
         self.modified = datetime.utcnow()
+        self._apply_page_settings()
+
+        # prepare our file
         outf = NamedTemporaryFile()
         out_zip = ZipFile(outf.name, mode='w')
 
