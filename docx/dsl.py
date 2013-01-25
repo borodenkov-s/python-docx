@@ -20,6 +20,9 @@ def start_doc(**kwargs):
 
     doc = Docx()
 
+def def_settings(settings):
+    doc.set_page_settings(settings)
+
 ### DSL
 
 h_ = lambda level, txt: doc.append(elements.heading(txt, level))

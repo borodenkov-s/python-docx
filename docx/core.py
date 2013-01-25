@@ -78,6 +78,38 @@ class Docx(object):
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
 
+    def set_page_settings(self, settings=None):
+        ''' Add or update page settings
+            with settings = None :  add defaults
+            else update settings dict
+        '''
+        def merge(d1, d2):
+            for k1,v1 in d1.iteritems():
+                if not k1 in d2:
+                    d2[k1] = v1
+                elif isinstance(v1, dict):
+                    merge(v1, d2[k1])
+            return d2
+
+        if not settings or not self.settings:
+            self.settings = PAGESETTINGS
+
+        if settings:
+            self.settings = merge(self.settings, settings)
+
+
+    def _apply_page_settings(self):
+        if not self.settings:
+            self.settings = PAGESETTINGS
+
+        sectPr = makeelement('sectPr')
+        for settingname, settingattrs in self.settings.iteritems():
+            log.info('applying settings: %s = %s' %(settingname,settingattrs))
+            sectPr.append( makeelement(settingname, attributes=settingattrs))
+        self.docbody.append(sectPr)
+
+
+
     def search(self, search):
         '''Search a document for a regex, return success / fail result'''
         document = self.docbody
