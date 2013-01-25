@@ -9,6 +9,7 @@ See LICENSE for licensing information.
 '''
 
 from copy import deepcopy
+from datetime import datetime
 import logging
 from lxml import etree
 from dateutil import parser as dateParser
@@ -37,13 +38,14 @@ class Docx(object):
                      "wordrelationships": 'word/_rels/document.xml.rels'}
 
     def __init__(self, outfile=None):
+		create_new_doc = f is None
         self._orig_docx = outfile
         self._tmp_file = NamedTemporaryFile()
 
-        if outfile is None:
+        if create_new_doc:
             outfile = self.__generate_empty_docx()
 
-        shutil.copyfile(outfile, self._tmp_file.name)
+        shutil.copyfile(f, self._tmp_file.name)
         self._docx = ZipFile(self._tmp_file.name, mode='a')
 
         for tree, outfile in self.trees_and_files.items():
@@ -52,6 +54,10 @@ class Docx(object):
         self.docbody = self.document.xpath('/w:document/w:body',
                                                     namespaces=nsprefixes)[0]
 
+        if create_new_doc:
+            self.created = datetime.utcnow()
+
+    def __new__(cls, *args, **kwargs):
         # Make getters and setter for the core properties
         def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
             getter = lambda self: to_python(self._get_coreprop_val(prop))
@@ -59,15 +65,23 @@ class Docx(object):
             setattr(self, prop, property(getter, setter))
 
         for prop in ['title', 'subject', 'creator', 'description',
+
                      'lastModifiedBy', 'revision']:
             set_coreprop_property(prop)
 
         for datetimeprop in ['created', 'modified']:
+
             set_coreprop_property(datetimeprop,
                 to_python=dateParser.parse,
                 to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat')
                                         else dateParser.parse(obj).isoformat()
             )
+
+            set_coreprop_property(datetimeprop,
+                to_python=dateutil.parser.parse,
+                to_str=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else dateutil.parser.parse(obj).isoformat()
+            )
+        return super(Docx, cls).__new__(cls, *args, **kwargs)
 
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
@@ -404,6 +418,7 @@ class Docx(object):
 
     #need to be rewrite with django/pagesettings see comments
     def save(self, dest=None):
+        self.modified = datetime.utcnow()
         docxfile = self._docx
 
         # Serialize our trees into our zip file
@@ -443,7 +458,7 @@ class Docx(object):
     def _get_coreprop_val(self, tagname):
         return self._get_coreprop(tagname).text
 
-    def _get_coreprof_val(self, tagname, val):
+    def _set_coreprop_val(self, tagname, val):
         self._get_coreprop(tagname).text = val
 
     # check if used ..
