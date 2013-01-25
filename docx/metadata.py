@@ -3,6 +3,7 @@
 from os.path import abspath, dirname, join
 
 PACKAGE_DIR = abspath(dirname(__file__))
+
 TEMPLATE_DIR = join(PACKAGE_DIR, 'template')
 
 # Record template directory's location which is just 'template' for a docx

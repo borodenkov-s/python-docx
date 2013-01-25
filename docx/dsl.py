@@ -1,3 +1,5 @@
+#-*- coding:utf-8 -*-
+
 from contextlib import contextmanager
 from core import Docx
 import elements
@@ -12,12 +14,12 @@ meta = {
 doc = None
 def start_doc(**kwargs):
     global doc, meta
-    
-    if kwargs.get("meta", None) is not None: 
+
+    if kwargs.get("meta", None) is not None:
         meta = kwargs['meta']
-        
+
     doc = Docx()
-    
+
 ### DSL
 
 h_ = lambda level, txt: doc.append(elements.heading(txt, level))
@@ -38,7 +40,7 @@ def img(src, alt=""):
 @contextmanager
 def ul():
     yield lambda txt: doc.append(elements.paragraph(txt, style='ListBullet'))
-        
+
 @contextmanager
 def ol():
     yield lambda txt: doc.append(elements.paragraph(txt, style='ListNumber'))
@@ -46,25 +48,25 @@ def ol():
 @contextmanager
 def table():
     t = []
-    
-    @contextmanager    
+
+    @contextmanager
     def tr():
         r = []
         t.append(r)
         yield lambda txt: r.append(txt)
-                
+
     yield tr
-    doc.append(elements.table(t, 
-        heading=False, 
+    doc.append(elements.table(t,
+        heading=False,
         borders={"all": {'sz': 2, 'color': 'cccccc'}},
         celstyle=[{'fill': "ffffff"}] * len(t)
     ))
-        
+
 ## utility functions...
 def write_docx(f):
     doc.title = str(meta.get('title', ''))
     doc.subject = str(meta.get('subject', ''))
     doc.creator = str(meta.get('creator', ''))
     doc.keywords = list(meta.get('keywords', []))
-       
+
     doc.save(f)

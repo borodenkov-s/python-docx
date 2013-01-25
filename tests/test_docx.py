@@ -33,16 +33,16 @@ def teardown_module():
 def simpledoc():
     '''Make a docx (document, relationships) for use in other docx tests'''
     document = Docx()
-    document.append(heading('Heading 1',1)  )   
+    document.append(heading('Heading 1',1)  )
     document.append(heading('Heading 2',2))
     document.append(paragraph('Paragraph 1'))
     for point in ['List Item 1','List Item 2','List Item 3']:
         document.append(paragraph(point,style='ListNumber'))
     document.append(pagebreak(breaktype='page'))
-    document.append(paragraph('Paragraph 2')) 
+    document.append(paragraph('Paragraph 2'))
     document.append(table([['A1','A2','A3'],['B1','B2','B3'],['C1','C2','C3']]))
     document.append(pagebreak(breaktype='section', orient='portrait'))
-    
+
     #relationships,picpara = picture(relationships,IMAGE1_FILE,'This is a test description')
     #document.append(picpara)
     document.append(pagebreak(breaktype='section', orient='landscape'))
@@ -59,10 +59,10 @@ def testsearchandreplace():
     assert document.search('graph 3')
     assert document.search('ist Item')
     assert document.search('A1')
-    if document.search('Paragraph 2'): 
-        document.replace('Paragraph 2','Whacko 55') 
+    if document.search('Paragraph 2'):
+        document.replace('Paragraph 2','Whacko 55')
     assert document.search('Whacko 55')
-    
+
 def testtextextraction():
     '''Ensure text can be pulled out of a document'''
     document = Docx(TEST_FILE)
@@ -78,7 +78,7 @@ def testunsupportedpagebreak():
     except ValueError:
         return # passed
     assert False # failed
-    
+
 def testnewdocument():
     '''Test that a new document can be created'''
     doc = simpledoc()
@@ -103,7 +103,7 @@ def testparagraph():
     testpara = paragraph('paratext',style='BodyText')
     assert testpara.tag == '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'
     pass
-    
+
 def testtable():
     '''Ensure tables make sense'''
     testtable = table([['A1','A2'],['B1','B2'],['C1','C2']])

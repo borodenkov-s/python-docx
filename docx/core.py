@@ -22,8 +22,7 @@ from os.path import join
 from tempfile import NamedTemporaryFile
 from .utils import findTypeParent
 
-from StringIO import StringIO
-from .metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
+from .metadata import nsprefixes, TEMPLATE_DIR
 from .elements import makeelement
 
 log = logging.getLogger(__name__)
@@ -193,7 +192,7 @@ class Docx(object):
                         els_len = len(searchels)
                         for s in reversed(range(els_len)):
                             txtsearch = ''
-                            e = range(s,els_len)
+                            e = range(s, els_len)
                             for k in e:
                                 txtsearch += searchels[k].text
                             match = searchre.search(txtsearch)
@@ -209,7 +208,7 @@ class Docx(object):
                             log.debug("Search regexp: %s", searchre.pattern)
                             log.debug("Requested replacement: %s", replace)
                             log.debug("Matched text: %s", txtsearch)
-                            log.debug("Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                            log.debug("Matched text (splitted): %s", map(lambda i: i.text, searchels))
                             log.debug("Matched at position: %s", match.start())
                             log.debug("matched in elements: %s", e)
                             if isinstance(replace, etree._Element):
@@ -217,7 +216,8 @@ class Docx(object):
                             elif isinstance(replace(list, tuple)):
                                 log.debug("Will replace with LIST OF ELEMENTS")
                             else:
-                                log.debug("Will replace with:", re.sub(search,replace,txtsearch))
+                                log.debug("Will replace with:", re.sub(search,
+                                                        replace, txtsearch))
 
                         try:
                             # for text, we want to replace at <w:r> level
@@ -278,13 +278,13 @@ class Docx(object):
                                 lines = r.split('\n')
                                 for line in lines[:-1]:
                                     new_r = deepcopy(template_r)
-                                    new_r.append(makeelement('t',tagtext=line))
+                                    new_r.append(makeelement('t', tagtext=line))
                                     new_r.append(makeelement('br'))
                                     p.insert(insindex, new_r)
                                     insindex += 1
                                 # the last line of the segment
                                 new_r = deepcopy(template_r)
-                                new_r.append(makeelement('t',tagtext=lines[-1]))
+                                new_r.append(makeelement('t', tagtext=lines[-1]))
                                 p.insert(insindex, new_r)
                                 insindex += 1
                             # copy the last matching <w:r> element
@@ -409,13 +409,15 @@ class Docx(object):
         # Serialize our trees into our zip file
         for tree, dest_file in self.trees_and_files.items():
             log.info('Saving: ' + dest_file)
-            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
+            docxfile.writestr(dest_file, etree.tostring(getattr(self, tree),
+                                                            pretty_print=True))
 
         log.info('Saved new file to: %r', dest)
         docxfile.close()
 
         if dest is not None:
             shutil.copyfile(self._tmp_file.name, dest)
+        return docxfile
 
     # check if used ..
     def copy(self):
@@ -452,11 +454,11 @@ class Docx(object):
         docxfile = ZipFile(loc, mode='w', compression=ZIP_DEFLATED)
 
         # Move to the template data path
-        prev_dir = os.path.abspath('.') # save previous working dir
+        prev_dir = os.path.abspath('.')  # save previous working dir
         os.chdir(TEMPLATE_DIR)
 
         # Add & compress support files
-        files_to_ignore = ['.DS_Store'] # nuisance from some os's
+        files_to_ignore = ['.DS_Store']  # nuisance from some os's
         for dirpath, dirnames, filenames in os.walk('.'):
             for filename in filenames:
                 if filename in files_to_ignore:
@@ -492,7 +494,7 @@ class Docx(object):
                 # Find t (text) elements
                 if element.tag == '{' + nsprefixes['w'] + '}t':
                     if element.text:
-                        paratext = paratext+element.text
+                        paratext = paratext + element.text
             # Add our completed paragraph text to the list of paragraph text
             if not len(paratext) == 0:
                 paratextlist.append(paratext)
