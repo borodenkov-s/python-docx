@@ -5,6 +5,7 @@ from os.path import abspath, dirname, join
 PACKAGE_DIR = abspath(dirname(__file__))
 
 TEMPLATE_DIR = join(PACKAGE_DIR, 'template')
+TMP_TEMPLATE_DIR = join(TEMPLATE_DIR, '.tmp')
 
 image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'

@@ -1,7 +1,7 @@
 #-*- coding:utf-8 -*-
 
 import os
-from os.path import join
+from os.path import join, basename
 import shutil
 from copy import deepcopy
 
@@ -11,7 +11,7 @@ try:
 except ImportError:
     import Image
 
-from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
+from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship
 
 
 def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
@@ -357,11 +357,17 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
     if not template_dir:
-        template_dir = TEMP_TEMPLATE_DIR
-    media_dir = join(template_dir, 'word', 'media')
+        template_dir = TMP_TEMPLATE_DIR
+    media_dir = join(TEMPLATE_DIR, 'word', 'media')
+
+
     if not os.path.isdir(media_dir):
         os.makedirs(media_dir)
-    shutil.copyfile(picpath, join(media_dir, picpath))
+
+    pic_tmppath = join(media_dir, basename(picpath))
+    pic_relpath = join('media', basename(picpath))
+
+    shutil.copyfile(picpath,join(media_dir, basename(picpath)))
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -381,7 +387,13 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
         relid = (idx for idx, rel in enumerate(relationshiplist) if rel[1] == picpath).next() + 1
 
     except (StopIteration, IndexError):
-        relationshiplist.append(makeelement('Relationship', attributes={'Id': 'rId' + str(len(relationshiplist)+1), 'Type': image_relationship,'Target': join('media', picpath)}, nsprefix=None))
+        relationshiplist.append(makeelement(
+                            'Relationship',
+                            attributes={
+                                'Id': 'rId' + str(len(relationshiplist)+1),
+                                'Type': image_relationship,
+                                'Target': join('media', basename(picpath))},
+                            nsprefix=None))
         relid = len(relationshiplist)
 
     picrelid = 'rId' + str(relid)
@@ -452,4 +464,4 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
     run.append(drawing)
     paragraph = makeelement('p')
     paragraph.append(run)
-    return relationshiplist, paragraph
+    return  paragraph
