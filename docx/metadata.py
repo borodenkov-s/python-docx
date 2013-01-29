@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
 from os.path import abspath, dirname, join
+from .utils import cm2dxa
 
 PACKAGE_DIR = abspath(dirname(__file__))
 
@@ -45,15 +46,21 @@ nsprefixes = {
 
 FORMAT = {
         "letter": {"w": '12240', "h": '15840'},
-        "a4": {"w": '11906', "h": '16838'},
-        "a5": {"w": '8391', "h": '11906'},
+
+        "A0": {"w": str(cm2dxa(84.1)), "h": str(cm2dxa(118.9))},
+        "A1": {"w": str(cm2dxa(59.4)), "h": str(cm2dxa(84.1))},
+        "A2": {"w": str(cm2dxa(42)), "h": str(cm2dxa(59.4))},
+        "A3": {"w": str(cm2dxa(29.7)), "h": str(cm2dxa(42))},
+        "A4": {"w": str(cm2dxa(21)), "h": str(cm2dxa(29.7))},
+        "A5": {"w": str(cm2dxa(14.8)), "h": str(cm2dxa(21))},
+        "A6": {"w": str(cm2dxa(10.5)), "h": str(cm2dxa(148))},
         }
 
 PAGESETTINGS = {
     'pgMar': {'bottom': '720', 'footer': '0', 'gutter': '0', 'header': '0',
                         'left': '1138', 'right': '1138', 'top': '1138'},
     'type': {'val': 'nextPage'},
-    'pgSz': FORMAT['a4'],
+    'pgSz': FORMAT['A4'],
     'pgNumType': {'fmt': 'decimal'},
     'formProt': {'val': 'false'},
     'textDirection': {'val': 'lrTb'},

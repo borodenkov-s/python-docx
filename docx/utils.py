@@ -4,6 +4,13 @@ from os.path import join, abspath
 from zipfile import ZipFile, ZIP_DEFLATED
 
 
+def cm2dxa(cm):
+    """ convetion function to make things easy """
+    # "word processes files at 72dpi"
+    # cf http://startbigthinksmall.wordpress.com/2010/01/04/points-inches-and-emus-measuring-units-in-office-open-xml/
+    return int(cm / 2.54 * 72 * 20)
+
+
 def findTypeParent(element, tag):
     """ Finds fist parent of element of the given type
 
