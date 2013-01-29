@@ -259,8 +259,23 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
     table.append(tableprops)
     # Table Grid
     tablegrid = makeelement('tblGrid')
-    for i in range(columns):
-        tablegrid.append(makeelement('gridCol',attributes={'w':str(colw[i]) if colw else '2390'}))
+
+    # gridCol width must be in dxa so convert pct to dxa if needed and if tblw
+    # is defined (in dxa !)
+    if colw:
+        if tblw is not 0 and twunit is 'dxa' and cwunit is 'pct':
+            colw = [ tblw*int(size)/5000 if size is not 'auto' else 5000
+                                                            for size in colw ]
+        for size in colw:
+            if size is not 'auto':
+                tablegrid.append(makeelement('gridCol',attributes={'w': str(size)}))
+            else:
+                tablegrid.append(makeelement('gridCol'))
+    else:
+        for i in range(columns):
+            tablegrid.append(makeelement('gridCol',attributes={'w': '2390'}))
+
+
     table.append(tablegrid)
     # Heading Row
     row = makeelement('tr')
@@ -268,6 +283,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
     cnfStyle = makeelement('cnfStyle',attributes={'val':'000000100000'})
     rowprops.append(cnfStyle)
     row.append(rowprops)
+
     if heading:
         i = 0
         for heading in contents[0]:
