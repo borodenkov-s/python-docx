@@ -1,7 +1,7 @@
 #-*- coding:utf-8 -*-
 
 from contextlib import contextmanager
-from core import Docx
+from .core import Docx
 import elements
 
 meta = {
@@ -12,6 +12,7 @@ meta = {
 }
 
 doc = None
+
 def start_doc(**kwargs):
     global doc, meta
 

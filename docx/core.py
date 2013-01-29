@@ -9,7 +9,7 @@ See LICENSE for licensing information.
 
 from copy import deepcopy
 from datetime import datetime
-import logging
+
 from lxml import etree
 from dateutil import parser as dateParser
 
@@ -23,9 +23,9 @@ from tempfile import NamedTemporaryFile
 from .utils import findTypeParent, dir_to_docx
 
 from .metadata import nsprefixes, TEMPLATE_DIR, PAGESETTINGS
-from .metadata import FORMAT
 from .elements import makeelement
 
+import logging
 log = logging.getLogger(__name__)
 
 
@@ -40,21 +40,21 @@ class Docx(object):
                      "styles": 'word/styles.xml'
                          }
 
-    def __init__(self, outfile=None):
-        create_new_doc = outfile is None
+    def __init__(self, srcfile=None):
+        create_new_doc = srcfile is None
         self.settings = {}
 
-        self._orig_docx = outfile
+        self._orig_docx = srcfile
         self._tmp_file = NamedTemporaryFile()
 
         if create_new_doc:
-            outfile = self.__generate_empty_docx()
+            srcfile = self.__generate_empty_docx()
 
-        shutil.copyfile(outfile, self._tmp_file.name)
+        shutil.copyfile(srcfile, self._tmp_file.name)
         self._docx = ZipFile(self._tmp_file.name, mode='a')
 
-        for tree, outfile in self.trees_and_files.items():
-            self._load_etree(tree, outfile)
+        for tree, relpathfile in self.trees_and_files.items():
+            self._load_etree(tree, relpathfile)
 
         self.docbody = self.document.xpath('/w:document/w:body',
                                                     namespaces=nsprefixes)[0]
@@ -93,7 +93,7 @@ class Docx(object):
             else update settings dict
         '''
         def merge(d1, d2):
-            for k1,v1 in d1.iteritems():
+            for k1, v1 in d1.iteritems():
                 if not k1 in d2:
                     d2[k1] = v1
                 elif isinstance(v1, dict):
@@ -106,7 +106,6 @@ class Docx(object):
         if settings:
             self.settings = merge(self.settings, settings)
 
-
     def _apply_page_settings(self):
         if not self.settings:
             self.settings = PAGESETTINGS
@@ -115,14 +114,13 @@ class Docx(object):
         sectPr.append(makeelement(
                             'headerReference',
                             attributes={
-                                'id': { 'value':'rId7', 'prefix' :'r'},
+                                'id': {'value': 'rId7', 'prefix': 'r'},
                                 'type': 'default',},
                             nsprefix='w',))
         for settingname, settingattrs in self.settings.iteritems():
-            log.info('applying settings: %s = %s' %(settingname,settingattrs))
-            sectPr.append( makeelement(settingname, attributes=settingattrs))
+            #log.info('applying settings: %s = %s' %(settingname,settingattrs))
+            sectPr.append(makeelement(settingname, attributes=settingattrs))
         self.docbody.append(sectPr)
-
 
 
     def search(self, search):
@@ -172,11 +170,12 @@ class Docx(object):
             with open(stylefile, 'r') as f:
                 try:
                     self.styles = etree.fromstring(f.read())
-                    log.info('new style load from %s'% stylefile)
+                    log.info('new style load from %s' % stylefile)
                 except:
-                    log.debug('unable to load xml tree from %s'% stylefile)
+                    log.debug('unable to load xml tree from %s' % stylefile)
         else:
             log.debug('%s is not a file'% stylefile)
+
     def advReplace(self, search, replace, bs=3):
         '''Replace all occurences of string with a different string, return updated document
 
@@ -384,7 +383,7 @@ class Docx(object):
     def template(self, cx, max_blocks=5, raw_document=False):
         """
         Accepts a context dictionary (cx) and looks for the dict keys wrapped
-        in {{key}}. Replaces occurances with the correspoding value from the
+        in {{key}}. Replaces occurances with the corresponding value from the
         cx dictionary.
 
         example:
@@ -545,7 +544,22 @@ class Docx(object):
                 paratextlist.append(paratext)
         return paratextlist
 
-""" old version keeped for integration """
+
+""" old version keeped for compatibility """
+
+def opendocx(mydocfile):
+    '''Open a docx file, return a document XML tree'''
+    doc = Docx(mydocfile)
+    return doc.document
+
+def opendocxheader(mydocfile):
+    '''Open a docx file, return the header XML tree'''
+    doc = Docx(mydocfile)
+    return doc.header
+
+def newdocument():
+    doc = Docx()
+    return doc.document
 
 def createdoc(document, coreprops, appprops, contenttypes, websettings,
                 wordrelationships, output, settings=None, template_dir=None):
@@ -560,27 +574,14 @@ def createdoc(document, coreprops, appprops, contenttypes, websettings,
 
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
-    # save images referred in relationshiplist, adjust relationshiplist
-#    _relationshiplist = []
-#    for r_type, target in relationshiplist:
-#        if r_type == image_relationship:
-#            path = 'media/' + basename(target)
-#            docxfile.write(target, 'word/' + path)
-#            _relationshiplist += [[r_type, path]]
-#        else:
-#            _relationshiplist += [[r_type, target]]
-
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
-
-#    _wordrelationships = wordrelationships(_relationshiplist)
 
     # Add page settings
     document = add_page_settings(document, settings)
 
     # Serialize our trees into out zip file
-
 
     for tree in treesandfiles:
         log.info('Saving: ' + treesandfiles[tree])
@@ -623,46 +624,6 @@ def djangodocx(document, coreprops, appprops, contenttypes, websettings,
 
     return docx_zip
 
-
-def opendocx(file):
-    '''Open a docx file, return a document XML tree'''
-    mydoc = zipfile.ZipFile(file)
-    xmlcontent = mydoc.read('word/document.xml')
-    document = etree.fromstring(xmlcontent)
-    return document
-
-def opendocxheader(file):
-    '''Open a docx file, return the header XML tree'''
-    mydoc = zipfile.ZipFile(file)
-    try:
-        xmlcontent = mydoc.read('word/header2.xml')
-    except :
-        xmlcontent = mydoc.read('word/header1.xml')
-
-    header = etree.fromstring(xmlcontent)
-    return header
-
-def newdocument():
-    build_temp_template_layout()
-
-    document = makeelement('document')
-    document.append(makeelement('body'))
-    return document
-
-def build_temp_template_layout():
-    clear_temp_template_layout()
-    dir_util.copy_tree(TEMPLATE_DIR, TEMP_TEMPLATE_DIR)
-
-def clear_temp_template_layout():
-    if os.path.exists(TEMP_TEMPLATE_DIR):
-        if os.path.isdir(TEMP_TEMPLATE_DIR):
-            shutil.rmtree(TEMP_TEMPLATE_DIR)
-        else:
-            os.remove(TEMP_TEMPLATE_DIR)
-
-
-
-
 def getDefaultContentTypes():
     # FIXME - doesn't quite work...read from string as temp hack...
     #types = makeelement('Types',nsprefix='ct')
@@ -696,11 +657,6 @@ def getContentTypes(file=None):
     else:
         return getDefaultContentTypes()
 
-
-
-
-
-
 def findElementByText(document,search):
     '''Search a document for a regex, return the first matching text element'''
     res_element = None
@@ -712,12 +668,6 @@ def findElementByText(document,search):
                     res_element = element
                     return res_element
     return res_element
-
-
-
-
-
-
 
 def advSearch(document, search, bs=3):
     '''Return set of all regex matches
@@ -863,9 +813,6 @@ def advFindElementByText(document, search, bs=3):
                     # e = [1,2,3,4]
     return None
 
-
-
-
 def getdocumenttext(document):
     '''Return the raw text of a document, as a list of paragraphs.'''
     paratextlist=[]
@@ -985,10 +932,6 @@ def getRelationships(file=None, prefix="document"):
         return relationships
     else:
         return getDefaultRelationships()
-
-
-
-
 
 def add_page_settings(document, settings):
     ''' Add custom page settings '''
