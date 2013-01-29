@@ -11,8 +11,8 @@ try:
 except ImportError:
     import Image
 
-from metadata import nsprefixes, FORMAT, PAGESETTINGS
-from metadata import TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship
+from .metadata import nsprefixes, FORMAT, PAGESETTINGS
+from .metadata import TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship, header_relationship
 
 import logging
 log = logging.getLogger(__name__)

@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 class Docx(object):
     trees_and_files = {"document": 'word/document.xml',
                      "coreprops": 'docProps/core.xml',
+                     "header": 'word/header1.xml',
                      "appprops": 'docProps/app.xml',
                      "contenttypes": '[Content_Types].xml',
                      "websettings": 'word/webSettings.xml',
@@ -53,6 +54,8 @@ class Docx(object):
             self._load_etree(tree, outfile)
 
         self.docbody = self.document.xpath('/w:document/w:body',
+                                                    namespaces=nsprefixes)[0]
+        self.headercontent = self.header.xpath('/w:hdr',
                                                     namespaces=nsprefixes)[0]
 
         if create_new_doc:
@@ -106,6 +109,12 @@ class Docx(object):
             self.settings = PAGESETTINGS
 
         sectPr = makeelement('sectPr')
+        sectPr.append(makeelement(
+                            'headerReference',
+                            attributes={
+                                'id': { 'value':'rId7', 'prefix' :'r'},
+                                'type': 'default',},
+                            nsprefix='w',))
         for settingname, settingattrs in self.settings.iteritems():
             log.info('applying settings: %s = %s' %(settingname,settingattrs))
             sectPr.append( makeelement(settingname, attributes=settingattrs))

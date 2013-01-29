@@ -9,6 +9,7 @@ TEMPLATE_DIR = join(PACKAGE_DIR, 'template')
 TMP_TEMPLATE_DIR = join(TEMPLATE_DIR, '.tmp')
 
 image_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+header_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/header'
 hlink_relationship = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
 
