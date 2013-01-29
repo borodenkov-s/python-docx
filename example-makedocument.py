@@ -11,7 +11,7 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 """
 
-from docx import *
+from docx.document import *
 
 if __name__ == '__main__':
     # Default set of relationshipships - the minimum components of a document
