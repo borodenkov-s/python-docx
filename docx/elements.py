@@ -11,12 +11,25 @@ try:
 except ImportError:
     import Image
 
-from metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship
+from metadata import nsprefixes, FORMAT, PAGESETTINGS
+from metadata import TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship
 
+import logging
+log = logging.getLogger(__name__)
 
 def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
                                                             attrnsprefix=None):
-    '''Create an element & return it'''
+    '''Create an element & return it
+
+    @param dict attributes:
+            first key is the attribut's name,
+            second could be the value or
+                a dict like {'value': val, 'prefix': prefix}
+            to set per attr prefix
+
+    @param string attrnsprefix: Attribut default prefix
+
+    '''
     # Deal with list of nsprefix by making namespacemap
     namespacemap = None
     if isinstance(nsprefix, list):
@@ -29,6 +42,7 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
     else:
         # For when namespace = None
         namespace = ''
+
     newelement = etree.Element(namespace + tagname, nsmap=namespacemap)
     # Add attributes with namespaces
     if attributes:
@@ -43,8 +57,12 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
         else:
             attributenamespace = '{' + nsprefixes[attrnsprefix] + '}'
 
-        for tagattribute in attributes:
-            newelement.set(attributenamespace+tagattribute, attributes[tagattribute])
+        for attrname, attrvalue in attributes.iteritems():
+            if isinstance(attrvalue,dict):
+                ns = '{' + nsprefixes[attrvalue['prefix']] + '}'
+                newelement.set(ns + attrname, attrvalue['value'])
+            else:
+                newelement.set(attributenamespace + attrname, attrvalue)
     if tagtext:
         newelement.text = tagtext
     return newelement
@@ -203,7 +221,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                                e.g. {'firstColumn':'false', 'firstRow':'true'}, etc.
         @param bool heading: Tells whether first line should be treated as heading
                              or not
-        @param list colw: A list of interger. The list must have same element
+        @param list colw: A list of integer. The list must have same element
                           count of content lines. Specify column Widths in
                           wunitS
         @param string cwunit: Unit user for column width:
@@ -301,12 +319,12 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             cell.append(cellprops)
             # Paragraph (Content)
             if not isinstance(heading, (list, tuple)):
-                heading = [heading,]
+                heading = [heading, ]
             for h in heading:
                 if isinstance(h, etree._Element):
                     cell.append(h)
                 else:
-                    cell.append(paragraph(h,jc='center'))
+                    cell.append(paragraph(h, jc='center'))
             row.append(cell)
             i += 1
         table.append(row)
@@ -326,15 +344,17 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             # Properties
             cellprops = makeelement('tcPr')
             if colw:
-                wattr = {'w':str(colw[i]),'type':cwunit}
+                wattr = {'w': str(colw[i]), 'type': cwunit}
             else:
-                wattr = {'w':'0','type':'auto'}
+                wattr = {'w': '0', 'type': 'auto'}
             cellwidth = makeelement('tcW', attributes=wattr)
             cellprops.append(cellwidth)
             align = 'left'
             cell_spec_style = {}
+
             if celstyle:
                 cell_spec_style = deepcopy(celstyle[i])
+
             if isinstance(content_cell, dict):
                 cell_spec_style.update(content_cell['style'])
                 content_cell = content_cell['content']
