@@ -33,6 +33,7 @@ class Docx(object):
     trees_and_files = {"document": 'word/document.xml',
                      "coreprops": 'docProps/core.xml',
                      "header": 'word/header1.xml',
+                     "footer": 'word/footer.xml',
                      "appprops": 'docProps/app.xml',
                      "contenttypes": '[Content_Types].xml',
                      "websettings": 'word/webSettings.xml',
@@ -59,6 +60,8 @@ class Docx(object):
         self.docbody = self.document.xpath('/w:document/w:body',
                                                     namespaces=nsprefixes)[0]
         self.headercontent = self.header.xpath('/w:hdr',
+                                                    namespaces=nsprefixes)[0]
+        self.footercontent = self.footer.xpath('/w:ftr',
                                                     namespaces=nsprefixes)[0]
 
         if create_new_doc:
@@ -115,6 +118,12 @@ class Docx(object):
                             'headerReference',
                             attributes={
                                 'id': {'value': 'rId7', 'prefix': 'r'},
+                                'type': 'default',},
+                            nsprefix='w',))
+        sectPr.append(makeelement(
+                            'footerReference',
+                            attributes={
+                                'id': {'value': 'rId8', 'prefix': 'r'},
                                 'type': 'default',},
                             nsprefix='w',))
         for settingname, settingattrs in self.settings.iteritems():
