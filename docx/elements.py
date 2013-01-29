@@ -96,7 +96,8 @@ def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
     return pagebreak
 
 def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
-                                        font='Times New Roman', fontsize=12):
+                                        font='Times New Roman', fontsize=12,
+                                        tabs = None):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -142,6 +143,14 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
     pPr = makeelement('pPr')
     pStyle = makeelement('pStyle',attributes={'val':style})
     pJc = makeelement('jc',attributes={'val':jc})
+
+    if tabs:
+        pTabs = makeelement('tabs')
+        for tab in tabs:
+            pTabs.append(makeelement('tab',  attributes = tab))
+
+        pPr.append(pTabs)
+
     pPr.append(pStyle)
     pPr.append(pJc)
 
