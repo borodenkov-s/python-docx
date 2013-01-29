@@ -16,6 +16,7 @@ from dateutil import parser as dateParser
 from zipfile import ZipFile
 import shutil
 import re
+import os
 
 
 from tempfile import NamedTemporaryFile
@@ -35,7 +36,9 @@ class Docx(object):
                      "appprops": 'docProps/app.xml',
                      "contenttypes": '[Content_Types].xml',
                      "websettings": 'word/webSettings.xml',
-                     "wordrelationships": 'word/_rels/document.xml.rels'}
+                     "wordrelationships": 'word/_rels/document.xml.rels',
+                     "styles": 'word/styles.xml'
+                         }
 
     def __init__(self, outfile=None):
         create_new_doc = outfile is None
@@ -164,6 +167,16 @@ class Docx(object):
 
         return newdocument
 
+    def load_style(self, stylefile):
+        if os.path.isfile(stylefile):
+            with open(stylefile, 'r') as f:
+                try:
+                    self.styles = etree.fromstring(f.read())
+                    log.info('new style load from %s'% stylefile)
+                except:
+                    log.debug('unable to load xml tree from %s'% stylefile)
+        else:
+            log.debug('%s is not a file'% stylefile)
     def advReplace(self, search, replace, bs=3):
         '''Replace all occurences of string with a different string, return updated document
 
