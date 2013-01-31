@@ -59,12 +59,16 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
         else:
             attributenamespace = '{' + nsprefixes[attrnsprefix] + '}'
 
-        for attrname, attrvalue in attributes.iteritems():
-            if isinstance(attrvalue,dict):
-                ns = '{' + nsprefixes[attrvalue['prefix']] + '}'
-                newelement.set(ns + attrname, attrvalue['value'])
-            else:
-                newelement.set(attributenamespace + attrname, attrvalue)
+        if isinstance(attributes, dict):
+            for attrname, attrvalue in attributes.iteritems():
+                if isinstance(attrvalue, dict):
+                    ns = '{' + nsprefixes[attrvalue['prefix']] + '}'
+                    newelement.set(ns + attrname, attrvalue['value'])
+                else:
+                    newelement.set(attributenamespace + attrname, attrvalue)
+        else:
+            newelement.set(attributenamespace + attributes, attributes)
+
     if tagtext:
         newelement.text = tagtext
     return newelement
