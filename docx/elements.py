@@ -1,8 +1,6 @@
-#-*- coding:utf-8 -*-
+#-*- coding: utf-8 -*-
 
-import os
 from os.path import join, basename
-import shutil
 from copy import deepcopy
 
 from lxml import etree
@@ -11,13 +9,13 @@ try:
 except ImportError:
     import Image
 
-from .metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
-from .metadata import TMP_TEMPLATE_DIR, image_relationship
+from .metadata import nsprefixes, FORMAT, image_relationship
 
 from .utils import new_id
 
 import logging
 log = logging.getLogger(__name__)
+
 
 def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
                                                             attrnsprefix=None):
@@ -48,10 +46,12 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
     newelement = etree.Element(namespace + tagname, nsmap=namespacemap)
     # Add attributes with namespaces
     if attributes:
-        # If they haven't bothered setting attribute namespace, use an empty string
+        # If they haven't bothered setting attribute namespace,
+        #  use an empty string
         # (equivalent of no namespace)
         if not attrnsprefix:
-            # Quick hack: it seems every element that has a 'w' nsprefix for its tag uses the same prefix for it's attributes
+            # Quick hack: it seems every element that has a 'w' nsprefix
+            # for its tag uses the same prefix for it's attributes
             if nsprefix == 'w':
                 attributenamespace = namespace
             else:
@@ -69,14 +69,16 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
         newelement.text = tagtext
     return newelement
 
+
 def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
     '''Insert a break, default 'page'.
-    See http://openxmldeveloper.org/forums/thread/4075.aspx
+    See http: //openxmldeveloper.org/forums/thread/4075.aspx
     Return our page break element.'''
     # Need to enumerate different types of page breaks.
     validtypes = ['page', 'section']
     if breaktype not in validtypes:
-        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (breaktype, validtypes))
+        raise ValueError('Page break style "%s" not implemented.\
+                                Valid styles: %s.' % (breaktype, validtypes))
     pagebreak = makeelement('p')
     if breaktype == 'page':
         run = makeelement('r')
@@ -97,15 +99,16 @@ def pagebreak(breaktype='page', orient='portrait', pageformat='letter'):
         pagebreak.append(pPr)
     return pagebreak
 
+
 def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
                                         font='Times New Roman', fontsize=12,
-                                        tabs = None):
+                                        tabs=None):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
     @param string jc: Paragraph alignment, possible values:
                       left, center, right, both (justified), ...
-                      see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
+                      see http: //www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
 
     @param string font: Paragraph font family
@@ -138,18 +141,20 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
         if not isinstance(pt, (list, tuple)):
             pt = (pt, {})
         lines = pt[0].split('\n')
-        for l in lines[:-1]:
-            text.append((makeelement('t',tagtext=l), pt[1], True))  # with line break
-        text.append((makeelement('t',tagtext=lines[-1]), pt[1], False))  # the last line, without line break
+        for l in lines[: -1]:
+            # with line break
+            text.append((makeelement('t', tagtext=l), pt[1], True))
+        # the last line, without line break
+        text.append((makeelement('t', tagtext=lines[-1]), pt[1], False))
 
     pPr = makeelement('pPr')
-    pStyle = makeelement('pStyle',attributes={'val':style})
-    pJc = makeelement('jc',attributes={'val':jc})
+    pStyle = makeelement('pStyle', attributes={'val': style})
+    pJc = makeelement('jc', attributes={'val': jc})
 
     if tabs:
         pTabs = makeelement('tabs')
         for tab in tabs:
-            pTabs.append(makeelement('tab',  attributes = tab))
+            pTabs.append(makeelement('tab', attributes=tab))
 
         pPr.append(pTabs)
 
@@ -161,23 +166,24 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
     for t in text:
         run = makeelement('r')
         rPr = makeelement('rPr')
-        pFnt = makeelement('rFonts',attributes={'ascii':font,'cs':font,'eastAsia':font,'hAnsi':font})
-        sz = makeelement('sz',attributes={'val':str(fontsize*2)})
-        szCs = makeelement('szCs',attributes={'val':str(fontsize*2)})
+        pFnt = makeelement('rFonts', attributes={'ascii': font, 'cs': font,
+                                            'eastAsia': font, 'hAnsi': font})
+        sz = makeelement('sz', attributes={'val': str(fontsize * 2)})
+        szCs = makeelement('szCs', attributes={'val': str(fontsize * 2)})
         # Apply styles
         if 'style' in t[1]:
             if t[1]['style'].find('b') > -1:
                 b = makeelement('b')
                 rPr.append(b)
             if t[1]['style'].find('u') > -1:
-                u = makeelement('u',attributes={'val':'single'})
+                u = makeelement('u', attributes={'val': 'single'})
                 rPr.append(u)
             if t[1]['style'].find('i') > -1:
                 i = makeelement('i')
                 rPr.append(i)
         for pr_key in t[1]:
             if not pr_key == 'style':
-                pr = makeelement(pr_key,attributes={'val': t[1][pr_key]})
+                pr = makeelement(pr_key, attributes={'val': t[1][pr_key]})
                 rPr.append(pr)
         rPr.append(pFnt)
         rPr.append(sz)
@@ -197,6 +203,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
     # Return the combined paragraph
     return paragraph
 
+
 def heading(headingtext, headinglevel, lang='en'):
     '''Make a new heading, return the heading element'''
     lmap = {
@@ -207,7 +214,8 @@ def heading(headingtext, headinglevel, lang='en'):
     # Make our elements
     paragraph = makeelement('p')
     pr = makeelement('pPr')
-    pStyle = makeelement('pStyle', attributes={'val': lmap[lang] + str(headinglevel)})
+    pStyle = makeelement('pStyle', attributes={
+                                        'val': lmap[lang] + str(headinglevel)})
     run = makeelement('r')
     text = makeelement('t', tagtext=headingtext)
     # Add the text the run, and the run to the paragraph
@@ -217,6 +225,7 @@ def heading(headingtext, headinglevel, lang='en'):
     paragraph.append(run)
     # Return the combined paragraph
     return paragraph
+
 
 def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={},
@@ -229,7 +238,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                               all the listed elements will be merged into the cell.
         @param string tblstyle: Specifies name of table style to override default if desired
         @param string tbllook: Specifies which elements of table style to to apply to this table,
-                               e.g. {'firstColumn':'false', 'firstRow':'true'}, etc.
+                               e.g. {'firstColumn': 'false', 'firstRow': 'true'}, etc.
         @param bool heading: Tells whether first line should be treated as heading
                              or not
         @param list colw: A list of integer. The list must have same element
@@ -249,7 +258,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                              color: The color of the border, in hex or 'auto'
                              space: The space, measured in points
                              sz: The size of the border, in eights of a point
-                             val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.htm
+                             val: The style of the border, see http: //www.schemacentral.com/sc/ooxml/t-w_ST_Border.htm
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
                               'align': specify the alignment, see paragraph documentation,
@@ -260,7 +269,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
     columns = len(contents[0])
     # Table properties
     tableprops = makeelement('tblPr')
-    tablestyle = makeelement('tblStyle',attributes={'val':tblstyle if tblstyle else ''})
+    tablestyle = makeelement('tblStyle', attributes={'val': tblstyle if tblstyle else ''})
     tableprops.append(tablestyle)
     for attr in tableprops.iterchildren():
         if isinstance(attr, etree._Element):
@@ -270,7 +279,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             prop = makeelement(k, attributes=attr)
             tableprops.append(prop)
 
-    tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
+    tablewidth = makeelement('tblW', attributes={'w': str(tblw), 'type': str(twunit)})
     tableprops.append(tablewidth)
     if len(borders.keys()):
         tableborders = makeelement('tblBorders')
@@ -280,10 +289,10 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                 attrs = {}
                 for a in borders[k].keys():
                     attrs[a] = unicode(borders[k][a])
-                borderelem = makeelement(b,attributes=attrs)
+                borderelem = makeelement(b, attributes=attrs)
                 tableborders.append(borderelem)
         tableprops.append(tableborders)
-    tablelook = makeelement('tblLook',attributes=tbllook)
+    tablelook = makeelement('tblLook', attributes=tbllook)
     tableprops.append(tablelook)
     table.append(tableprops)
     # Table Grid
@@ -293,23 +302,22 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
     # is defined (in dxa !)
     if colw:
         if tblw is not 0 and twunit is 'dxa' and cwunit is 'pct':
-            colw = [ tblw*int(size)/5000 if size is not 'auto' else 5000
-                                                            for size in colw ]
+            colw = [tblw * int(size) / 5000 if size is not 'auto' else 5000
+                                                            for size in colw]
         for size in colw:
             if size is not 'auto':
-                tablegrid.append(makeelement('gridCol',attributes={'w': str(size)}))
+                tablegrid.append(makeelement('gridCol', attributes={'w': str(size)}))
             else:
                 tablegrid.append(makeelement('gridCol'))
     else:
         for i in range(columns):
-            tablegrid.append(makeelement('gridCol',attributes={'w': '2390'}))
-
+            tablegrid.append(makeelement('gridCol', attributes={'w': '2390'}))
 
     table.append(tablegrid)
     # Heading Row
     row = makeelement('tr')
     rowprops = makeelement('trPr')
-    cnfStyle = makeelement('cnfStyle',attributes={'val':'000000100000'})
+    cnfStyle = makeelement('cnfStyle', attributes={'val': '000000100000'})
     rowprops.append(cnfStyle)
     row.append(rowprops)
 
@@ -320,11 +328,11 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             # Cell properties
             cellprops = makeelement('tcPr')
             if colw:
-                wattr = {'w':str(colw[i]),'type':cwunit}
+                wattr = {'w': str(colw[i]), 'type': cwunit}
             else:
-                wattr = {'w':'0','type':'auto'}
-            cellwidth = makeelement('tcW',attributes=wattr)
-            cellstyle = makeelement('shd',attributes={'val':'clear','color':'auto','fill':'FFFFFF','themeFill':'text2','themeFillTint':'99'})
+                wattr = {'w': '0', 'type': 'auto'}
+            cellwidth = makeelement('tcW', attributes=wattr)
+            cellstyle = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': 'FFFFFF', 'themeFill': 'text2', 'themeFillTint': '99'})
             cellprops.append(cellwidth)
             cellprops.append(cellstyle)
             cell.append(cellprops)
@@ -340,7 +348,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             i += 1
         table.append(row)
     # Contents Rows
-    for contentrow in contents[1 if heading else 0:]:
+    for contentrow in contents[1 if heading else 0]:
         row = makeelement('tr')
         if rowstyle:
             rowprops = makeelement('trPr')
@@ -370,7 +378,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                 cell_spec_style.update(content_cell['style'])
                 content_cell = content_cell['content']
             # spec. align property
-            SPEC_PROPS = ['align',]
+            SPEC_PROPS = ['align', ]
             if 'align' in cell_spec_style:
                 align = celstyle[i]['align']
             # any property for cell, by OOXML specification
@@ -379,10 +387,11 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                     continue
                 cell_prop = makeelement(cs, attributes=attrs)
                 cellprops.append(cell_prop)
+
             cell.append(cellprops)
             # Paragraph (Content)
             if not isinstance(content_cell, (list, tuple)):
-                content_cell = [content_cell,]
+                content_cell = [content_cell, ]
             for c in content_cell:
                 # cell.append(cellprops)
                 if isinstance(c, etree._Element):
@@ -401,7 +410,7 @@ def picture(doc, picpath, picdescription, pixelwidth=0,
         return a paragraph containing the image
         and an updated relationshiplist
     '''
-    # http://openxmldeveloper.org/articles/462.aspx
+    # http: //openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture
 
@@ -411,9 +420,13 @@ def picture(doc, picpath, picdescription, pixelwidth=0,
     doc.add_file(picpath, 'word/'+pic_relpath)
 
     # Check if the user has specified a size
-    if not pixelwidth or not pixelheight:
-        # If not, get info from the picture itself
-        pixelwidth, pixelheight = Image.open(picpath).size[0:2]
+    # If not, get info from the picture itself
+
+    basew, baseh = Image.open(picpath).size[0: 2]
+    if not pixelheight:
+        pixelheight = (baseh * pixelwidth / basew) if pixelwidth else baseh
+    if not pixelwidth:
+        pixelwidth = (basew * pixelheight / baseh) if pixelheight else basew
 
     # OpenXML measures on-screen objects in English Metric Units
     # 1cm = 36000 EMUs
@@ -473,19 +486,19 @@ def picture(doc, picpath, picdescription, pixelwidth=0,
     # Now make the supporting elements
     # The following sequence is just: make element, then add its children
     graphicdata = makeelement('graphicData', nsprefix='a',
-                              attributes={'uri': 'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+                              attributes={'uri': 'http: //schemas.openxmlformats.org/drawingml/2006/picture'})
     graphicdata.append(pic)
     graphic = makeelement('graphic', nsprefix='a')
     graphic.append(graphicdata)
 
-    framelocks = makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1'})
+    framelocks = makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect': '1'})
     framepr = makeelement('cNvGraphicFramePr', nsprefix='wp')
     framepr.append(framelocks)
     docpr = makeelement('docPr', nsprefix='wp',
-                        attributes={'id': picid, 'name': 'Picture 1', 'descr':picdescription})
+                        attributes={'id': picrelid, 'name': 'Picture 1', 'descr': picdescription})
     effectextent = makeelement('effectExtent', nsprefix='wp',
                                attributes={'l': '25400', 't': '0', 'r': '0', 'b': '0'})
-    extent = makeelement('extent', nsprefix='wp', attributes={'cx': width,'cy': height})
+    extent = makeelement('extent', nsprefix='wp', attributes={'cx': width, 'cy': height})
     inline = makeelement('inline',
                          attributes={'distT': "0", 'distB': "0", 'distL': "0", 'distR': "0"},
                          nsprefix='wp')
