@@ -145,7 +145,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
         if not isinstance(pt, (list, tuple)):
             pt = (pt, {})
         lines = pt[0].split('\n')
-        for l in lines[: -1]:
+        for l in lines[:-1]:
             # with line break
             text.append((makeelement('t', tagtext=l), pt[1], True))
         # the last line, without line break
@@ -352,7 +352,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             i += 1
         table.append(row)
     # Contents Rows
-    for contentrow in contents[1 if heading else 0]:
+    for contentrow in contents[1 if heading else 0:]:
         row = makeelement('tr')
         if rowstyle:
             rowprops = makeelement('trPr')
