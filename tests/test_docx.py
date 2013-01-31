@@ -13,9 +13,26 @@ sys.path.insert(0, PROJECT_ROOT)
 import os
 import lxml
 from docx import *
+from docx.utils import *
+
+
+# --- Some fixture and testing values ---
 
 TEST_FILE = 'ShortTest.docx'
 IMAGE1_FILE = 'image1.png'
+
+RELATIONS = """
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Id="rId1" Target="numbering.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Id="rId2" Target="styles.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Id="rId3" Target="settings.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings" Id="rId4" Target="webSettings.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Id="rId5" Target="fontTable.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Id="rId6" Target="theme/theme1.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Id="rId7" Target="header1.xml"/>
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Id="rId8" Target="footer.xml"/>
+    </Relationships>
+    """
 
 # --- Setup & Support Functions ---
 def setup_module():
@@ -43,8 +60,9 @@ def simpledoc():
     document.append(table([['A1','A2','A3'],['B1','B2','B3'],['C1','C2','C3']]))
     document.append(pagebreak(breaktype='section', orient='portrait'))
 
-    #relationships,picpara = picture(relationships,IMAGE1_FILE,'This is a test description')
-    #document.append(picpara)
+    picpara = picture(document, IMAGE1_FILE,
+    'This is a test description')
+    document.append(picpara)
     document.append(pagebreak(breaktype='section', orient='landscape'))
     document.append(paragraph('Paragraph 3'))
     return document
@@ -109,6 +127,11 @@ def testtable():
     testtable = table([['A1','A2'],['B1','B2'],['C1','C2']])
     ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
     assert testtable.xpath('/ns0:tbl/ns0:tr[2]/ns0:tc[2]/ns0:p/ns0:r/ns0:t',namespaces={'ns0':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'})[0].text == 'B2'
+
+def testnew_id():
+    ''' Ensure we can get unique id for relationship'''
+    relationshiplist = lxml.etree.fromstring(RELATIONS)
+    assert new_id(relationshiplist) == 'rId9'
 
 if __name__=='__main__':
     import nose

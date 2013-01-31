@@ -11,8 +11,10 @@ try:
 except ImportError:
     import Image
 
-from .metadata import nsprefixes, FORMAT, PAGESETTINGS
-from .metadata import TEMPLATE_DIR, TMP_TEMPLATE_DIR, image_relationship, header_relationship
+from .metadata import nsprefixes, FORMAT, PAGESETTINGS, TEMPLATE_DIR
+from .metadata import TMP_TEMPLATE_DIR, image_relationship
+
+from .utils import new_id
 
 import logging
 log = logging.getLogger(__name__)
@@ -392,27 +394,21 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
         table.append(row)
     return table
 
-def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
-            pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
-            template_dir=None):
-    '''Take a relationshiplist, picture path, and return a paragraph containing the image
-    and an updated relationshiplist'''
+def picture(doc, picpath, picdescription, pixelwidth=0,
+            pixelheight=0, nochangeaspect=True, nochangearrowheads=True,
+            template_dir=None, relationships=None):
+    ''' Take a document, a picture path, and
+        return a paragraph containing the image
+        and an updated relationshiplist
+    '''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
-    # pixel size of image. Return a paragraph containing the picture'''
-    # Copy the file into the media dir
-    if not template_dir:
-        template_dir = TMP_TEMPLATE_DIR
-    media_dir = join(TEMPLATE_DIR, 'word', 'media')
+    # pixel size of image. Return a paragraph containing the picture
 
-
-    if not os.path.isdir(media_dir):
-        os.makedirs(media_dir)
-
-    pic_tmppath = join(media_dir, basename(picpath))
     pic_relpath = join('media', basename(picpath))
 
-    shutil.copyfile(picpath,join(media_dir, basename(picpath)))
+    # add the picture to the
+    doc.add_file(picpath, 'word/'+pic_relpath)
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -426,22 +422,17 @@ def picture(relationshiplist, picpath, picdescription, pixelwidth=None,
     height = str(pixelheight * emuperpixel)
 
     # Set relationship ID to the first available
-    picid = '2'
-
-    try:
-        relid = (idx for idx, rel in enumerate(relationshiplist) if rel[1] == picpath).next() + 1
-
-    except (StopIteration, IndexError):
-        relationshiplist.append(makeelement(
+    if relationships is None:
+        # default is the word part of the doc
+        relationships = doc.wordrelationships
+    picrelid = new_id(relationships)
+    relationships.append(makeelement(
                             'Relationship',
                             attributes={
-                                'Id': 'rId' + str(len(relationshiplist)+1),
+                                'Id': picrelid,
                                 'Type': image_relationship,
-                                'Target': join('media', basename(picpath))},
+                                'Target': pic_relpath},
                             nsprefix=None))
-        relid = len(relationshiplist)
-
-    picrelid = 'rId' + str(relid)
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)

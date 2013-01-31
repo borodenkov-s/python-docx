@@ -37,7 +37,7 @@ p = lambda txt: doc.append(elements.paragraph(txt))
 br = lambda **kwargs: doc.append(elements.pagebreak(**kwargs))
 
 def img(src, alt="", **kwargs):
-    doc.append(elements.picture(doc.wordrelationships, src, alt, **kwargs))
+    doc.append(elements.picture(doc, doc.wordrelationships, src, alt, **kwargs))
 
 @contextmanager
 def ul():

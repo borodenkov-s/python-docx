@@ -52,3 +52,13 @@ def dir_to_docx(source_dir, output_loc):
     docxfile.close()
 
     os.chdir(prev_dir)  # restore previous working dir
+
+def new_id(relationshiplist):
+    try:
+        nextid = max(list(
+            int(rel.get('Id').replace('rId',''))
+            for idx, rel
+            in enumerate(relationshiplist))) + 1
+    except:
+        nextid = 1
+    return 'rId' + str(nextid)

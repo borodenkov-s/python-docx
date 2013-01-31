@@ -33,11 +33,13 @@ class Docx(object):
     trees_and_files = {"document": 'word/document.xml',
                      "coreprops": 'docProps/core.xml',
                      "header": 'word/header1.xml',
-                     "footer": 'word/footer.xml',
+                     "footer": 'word/footer1.xml',
                      "appprops": 'docProps/app.xml',
                      "contenttypes": '[Content_Types].xml',
                      "websettings": 'word/webSettings.xml',
                      "wordrelationships": 'word/_rels/document.xml.rels',
+                     "headerrelationships": 'word/_rels/header1.xml.rels',
+                     "footerrelationships": 'word/_rels/footer1.xml.rels',
                      "styles": 'word/styles.xml'
                          }
 
@@ -86,6 +88,10 @@ class Docx(object):
                                     else dateParser.parse(obj).isoformat())
             )
         return super(Docx, cls).__new__(cls, *args, **kwargs)
+
+    def add_file(self, src_path, rel_path):
+        with open(src_path, 'rb') as f:
+            self._docx.writestr(rel_path, f.read())
 
     def append(self, *args, **kwargs):
         return self.docbody.append(*args, **kwargs)
