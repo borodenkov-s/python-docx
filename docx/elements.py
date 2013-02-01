@@ -290,11 +290,13 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
         for b in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
             if b in borders.keys() or 'all' in borders.keys():
                 k = 'all' if 'all' in borders.keys() else b
-                attrs = {}
-                for a in borders[k].keys():
-                    attrs[a] = unicode(borders[k][a])
-                borderelem = makeelement(b, attributes=attrs)
-                tableborders.append(borderelem)
+            attrs = {}
+            for a in borders[k].keys():
+                attrs[a] = unicode(borders[k][a])
+                if not 'val' in attrs:
+                    # default border type
+                    attrs['val'] = 'single'
+            tableborders.append(makeelement(b, attributes=attrs))
         tableprops.append(tableborders)
     tablelook = makeelement('tblLook', attributes=tbllook)
     tableprops.append(tablelook)
@@ -306,8 +308,10 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
     # is defined (in dxa !)
     if colw:
         if tblw is not 0 and twunit is 'dxa' and cwunit is 'pct':
-            colw = [tblw * int(size) / 5000 if size is not 'auto' else 5000
+
+            colw = [tblw * int(size) / 5000 if size is not 'auto' else tblw / len(colw)
                                                             for size in colw]
+            cwunit = 'dxa'
         for size in colw:
             if size is not 'auto':
                 tablegrid.append(makeelement('gridCol', attributes={'w': str(size)}))
@@ -336,7 +340,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             else:
                 wattr = {'w': '0', 'type': 'auto'}
             cellwidth = makeelement('tcW', attributes=wattr)
-            cellstyle = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': 'FFFFFF', 'themeFill': 'text2', 'themeFillTint': '99'})
+            cellstyle = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': 'FFFFFF'})  # , 'themeFill': 'text2', 'themeFillTint': '99'
             cellprops.append(cellwidth)
             cellprops.append(cellstyle)
             cell.append(cellprops)
@@ -351,6 +355,7 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
             row.append(cell)
             i += 1
         table.append(row)
+
     # Contents Rows
     for contentrow in contents[1 if heading else 0:]:
         row = makeelement('tr')
@@ -379,12 +384,19 @@ def table(contents, tblstyle=None, tbllook={'val': '0400'}, heading=True,
                 cell_spec_style = deepcopy(celstyle[i])
 
             if isinstance(content_cell, dict):
-                cell_spec_style.update(content_cell['style'])
-                content_cell = content_cell['content']
+                # accepted keys : 'content', 'style',
+                if 'style' in content_cell:
+                    cell_spec_style.update(content_cell['style'])
+                if 'content' in content_cell:
+                    content_cell = content_cell['content']
+                else:
+                    content_cell = ''
+
             # spec. align property
             SPEC_PROPS = ['align', ]
             if 'align' in cell_spec_style:
                 align = celstyle[i]['align']
+
             # any property for cell, by OOXML specification
             for cs, attrs in cell_spec_style.iteritems():
                 if cs in SPEC_PROPS:
