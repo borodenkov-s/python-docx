@@ -121,6 +121,46 @@ def testparagraph():
     testpara = paragraph('paratext',style='BodyText')
     assert testpara.tag == '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'
     pass
+def testparagraphwithtab():
+    '''Ensure paragraph creates the correct xml tree when passing content \t'''
+    """<ns0:p xmlns:ns0="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+          <ns0:pPr>
+            <ns0:pStyle ns0:val="BodyText" />
+            <ns0:jc ns0:val="left" />
+          </ns0:pPr>
+          <ns0:r>
+            <ns0:rPr>
+              <ns0:rFonts ns0:ascii="Times New Roman" ns0:hAnsi="Times New Roman" ns0:eastAsia="Times New Roman" ns0:cs="Times New Roman" />
+              <ns0:sz ns0:val="24" />
+              <ns0:szCs ns0:val="24" />
+            </ns0:rPr>
+            <ns0:t>TitreA</ns0:t>
+          </ns0:r>
+          <ns0:r>
+            <ns0:rPr>
+              <ns0:rFonts ns0:ascii="Times New Roman" ns0:hAnsi="Times New Roman" ns0:eastAsia="Times New Roman" ns0:cs="Times New Roman" />
+              <ns0:sz ns0:val="24" />
+              <ns0:szCs ns0:val="24" />
+            </ns0:rPr>
+            <ns0:tab />
+          </ns0:r>
+          <ns0:r>
+            <ns0:rPr>
+              <ns0:rFonts ns0:ascii="Times New Roman" ns0:hAnsi="Times New Roman" ns0:eastAsia="Times New Roman" ns0:cs="Times New Roman" />
+              <ns0:sz ns0:val="24" />
+              <ns0:szCs ns0:val="24" />
+            </ns0:rPr>
+            <ns0:t>text after tab</ns0:t>
+          </ns0:r>
+        </ns0:p>
+    """
+    testpara = paragraph('TitreA\ttext after tab', style='BodyText',)
+
+    assert testpara.getchildren()[1].getchildren()[1].text == 'TitreA'
+    assert testpara.getchildren()[2].getchildren()[1].tag == '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tab'
+    assert testpara.getchildren()[3].getchildren()[1].text == 'text after tab'
+
+
 
 def testtable():
     '''Ensure tables make sense'''

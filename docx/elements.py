@@ -138,18 +138,36 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left',
     # Make our elements
     paragraph = makeelement('p')
 
+
+    def maketext(text):
+        out = []
+        if '\t' not in text:
+            return [makeelement('t', tagtext=text),]
+        #with tab node
+        for part in text.partition('\t'):
+            if part == '\t':
+                out.append(makeelement('tab'))
+            else:
+                out.append(makeelement('t', tagtext=part))
+        return out
+
+
     if not isinstance(paratext, list):
         paratext = [paratext]
     text = []
+
     for pt in paratext:
         if not isinstance(pt, (list, tuple)):
             pt = (pt, {})
         lines = pt[0].split('\n')
         for l in lines[:-1]:
             # with line break
-            text.append((makeelement('t', tagtext=l), pt[1], True))
+            for el in maketext(l)[:-1]:
+                text.append((el, pt[1], False))
+            text.append((maketext(l)[-1], pt[1], True))
         # the last line, without line break
-        text.append((makeelement('t', tagtext=lines[-1]), pt[1], False))
+        for el in maketext(lines[-1]):
+            text.append((el, pt[1], False))
 
     pPr = makeelement('pPr')
     pStyle = makeelement('pStyle', attributes={'val': style})
