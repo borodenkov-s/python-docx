@@ -100,7 +100,7 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None, attrnspref
                 attributenamespace = ''
         else:
             attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
-            
+
         for tagattribute in attributes:
             newelement.set(attributenamespace+tagattribute, attributes[tagattribute])
     if tagtext:
@@ -136,27 +136,27 @@ def pagebreak(type='page', orient='portrait'):
 def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
-    
+
     @param string jc: Paragraph alignment, possible values:
                       left, center, right, both (justified), ...
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
-    
+
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
     <text> / <style>. Stile is a string containing a combination od 'bui' chars
-    
+
     example
     paratext =\
         [ ('some bold text', 'b')
         , ('some normal text', '')
         , ('some italic underlined text', 'iu')
         ]
-    
+
     '''
     # Make our elements
     paragraph = makeelement('p')
-    
+
     if isinstance(paratext, list):
         text = []
         for pt in paratext:
@@ -171,7 +171,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     pJc = makeelement('jc', attributes={'val':jc})
     pPr.append(pStyle)
     pPr.append(pJc)
-    
+
     # Add the text the run, and the run to the paragraph
     paragraph.append(pPr)
     for t in text:
@@ -247,7 +247,7 @@ def heading(headingtext, headinglevel, lang='en'):
 
 def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
     '''Get a list of lists, return a table
-    
+
         @param list contents: A list of lists describing contents
                               Every item in the list can be a string or a valid
                               XML element itself. It can also be a list. In that case
@@ -275,7 +275,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
                               'align': specify the alignment, see paragraph documentation.
-    
+
         @return lxml.etree: Generated XML etree element
     '''
     table = makeelement('tbl')
@@ -369,6 +369,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
         table.append(row)
     return table
 
+
 def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
@@ -385,16 +386,16 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     if not pixelwidth or not pixelheight:
         # If not, get info from the picture itself
         pixelwidth, pixelheight = Image.open(picname).size[0:2]
-    
+
     # OpenXML measures on-screen objects in English Metric Units
     # 1cm = 36000 EMUs
     emuperpixel = 12667
     width = str(pixelwidth * emuperpixel)
     height = str(pixelheight * emuperpixel)
-    
+
     # Set relationship ID to the first available
     picid = '2'
-    picrelid = 'rId'+str(len(relationshiplist)+1)
+    picrelid = 'rId' + str(len(relationshiplist) + 1)
     relationshiplist.append([
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
         'media/'+picname])
@@ -402,12 +403,12 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
     blipfill = makeelement('blipFill', nsprefix='pic')
-    blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r', attributes={'embed':picrelid}))
+    blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r', attributes={'embed': picrelid}))
     stretch = makeelement('stretch', nsprefix='a')
     stretch.append(makeelement('fillRect', nsprefix='a'))
     blipfill.append(makeelement('srcRect', nsprefix='a'))
     blipfill.append(stretch)
-    
+
     # 2. The non visual picture properties
     nvpicpr = makeelement('nvPicPr', nsprefix='pic')
     cnvpr = makeelement('cNvPr', nsprefix='pic',
@@ -415,44 +416,44 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     nvpicpr.append(cnvpr)
     cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
     cnvpicpr.append(makeelement('picLocks', nsprefix='a',
-                    attributes={'noChangeAspect':str(int(nochangeaspect)),
-                    'noChangeArrowheads':str(int(nochangearrowheads))}))
+                    attributes={'noChangeAspect': str(int(nochangeaspect)),
+                    'noChangeArrowheads': str(int(nochangearrowheads))}))
     nvpicpr.append(cnvpicpr)
-    
+
     # 3. The Shape properties
-    sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode':'auto'})
+    sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
     xfrm = makeelement('xfrm', nsprefix='a')
-    xfrm.append(makeelement('off', nsprefix='a', attributes={'x':'0', 'y':'0'}))
-    xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx':width, 'cy':height}))
-    prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst':'rect'})
+    xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
+    xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
+    prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
     prstgeom.append(makeelement('avLst', nsprefix='a'))
     sppr.append(xfrm)
     sppr.append(prstgeom)
-    
+
     # Add our 3 parts to the picture element
     pic = makeelement('pic', nsprefix='pic')
     pic.append(nvpicpr)
     pic.append(blipfill)
     pic.append(sppr)
-    
+
     # Now make the supporting elements
     # The following sequence is just: make element, then add its children
     graphicdata = makeelement('graphicData', nsprefix='a',
-        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+        attributes={'uri': 'http://schemas.openxmlformats.org/drawingml/2006/picture'})
     graphicdata.append(pic)
     graphic = makeelement('graphic', nsprefix='a')
     graphic.append(graphicdata)
-    
-    framelocks = makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1'})
+
+    framelocks = makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect': '1'})
     framepr = makeelement('cNvGraphicFramePr', nsprefix='wp')
     framepr.append(framelocks)
     docpr = makeelement('docPr', nsprefix='wp',
-        attributes={'id':picid, 'name':'Picture 1', 'descr':picdescription})
+        attributes={'id': picid, 'name': 'Picture 1', 'descr': picdescription})
     effectextent = makeelement('effectExtent', nsprefix='wp',
-        attributes={'l':'25400', 't':'0', 'r':'0', 'b':'0'})
-    extent = makeelement('extent', nsprefix='wp', attributes={'cx':width, 'cy':height})
+        attributes={'l': '25400', 't': '0', 'r': '0', 'b': '0'})
+    extent = makeelement('extent', nsprefix='wp', attributes={'cx': width, 'cy': height})
     inline = makeelement('inline',
-        attributes={'distT':"0", 'distB':"0", 'distL':"0", 'distR':"0"}, nsprefix='wp')
+        attributes={'distT': "0", 'distB': "0", 'distL': "0", 'distR': "0"}, nsprefix='wp')
     inline.append(extent)
     inline.append(effectextent)
     inline.append(docpr)
@@ -465,6 +466,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     paragraph = makeelement('p')
     paragraph.append(run)
     return relationshiplist, paragraph
+
 
 def search(document, search):
     '''Search a document for a regex, return success / fail result'''
@@ -492,9 +494,9 @@ def clean(document):
     """ Perform misc cleaning operations on documents.
         Returns cleaned document.
     """
-    
+
     newdocument = document
-    
+
     # Clean empty text and r tags
     for t in ('t', 'r'):
         rmlist = []
@@ -504,33 +506,33 @@ def clean(document):
                     rmlist.append(element)
         for element in rmlist:
             element.getparent().remove(element)
-    
+
     return newdocument
 
 def findTypeParent(element, tag):
     """ Finds fist parent of element of the given type
-    
+
     @param object element: etree element
     @param string the tag parent to search for
-    
+
     @return object element: the found parent or None when not found
     """
-    
+
     p = element
     while True:
         p = p.getparent()
         if p.tag == tag:
             return p
-    
+
     # Not found
     return None
 
 def AdvSearch(document, search, bs=3):
     '''Return set of all regex matches
-    
+
     This is an advanced version of python-docx.search() that takes into
     account blocks of <bs> elements at a time.
-    
+
     What it does:
     It searches the entire document body for text blocks.
     Since the text to search could be spawned across multiple text blocks,
@@ -538,34 +540,34 @@ def AdvSearch(document, search, bs=3):
     The smaller matching group of blocks (up to bs) is then adopted.
     If the matching group has more than one block, blocks other than first
     are cleared and all the replacement text is put on first block.
-    
+
     Examples:
     original text blocks : [ 'Hel', 'lo,', ' world!' ]
     search : 'Hello,'
     output blocks : [ 'Hello,' ]
-    
+
     original text blocks : [ 'Hel', 'lo', ' __', 'name', '__!' ]
     search : '(__[a-z]+__)'
     output blocks : [ '__name__' ]
-    
+
     @param instance  document: The original document
     @param str       search: The text to search for (regexp)
                           append, or a list of etree elements
     @param int       bs: See above
-    
+
     @return set      All occurences of search string
-    
+
     '''
-    
+
     # Compile the search regexp
     searchre = re.compile(search)
-    
+
     matches = []
-    
+
     # Will match against searchels. Searchels is a list that contains last
     # n text elements found in the document. 1 < n < bs
     searchels = []
-    
+
     for element in document.iter():
         if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
             if element.text:
@@ -574,7 +576,7 @@ def AdvSearch(document, search, bs=3):
                 if len(searchels) > bs:
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
-    
+
                 # Search all combinations, of searchels, starting from
                 # smaller up to bigger ones
                 # l = search lenght
@@ -592,23 +594,23 @@ def AdvSearch(document, search, bs=3):
                             txtsearch = ''
                             for k in e:
                                 txtsearch += searchels[k].text
-    
+
                             # Searcs for the text in the whole txtsearch
                             match = searchre.search(txtsearch)
                             if match:
                                 matches.append(match.group())
                                 found = True
-    
+
     return set(matches)
 
 def advReplace(document, search, replace, bs=3):
     """
     Replace all occurences of string with a different string, return updated document
-    
+
     This is a modified version of python-docx.replace() that takes into
     account blocks of <bs> elements at a time. The replace element can also
     be a string or an xml etree element.
-    
+
     What it does:
     It searches the entire document body for text blocks.
     Then scan thos text blocks for replace.
@@ -617,41 +619,41 @@ def advReplace(document, search, replace, bs=3):
     The smaller matching group of blocks (up to bs) is then adopted.
     If the matching group has more than one block, blocks other than first
     are cleared and all the replacement text is put on first block.
-    
+
     Examples:
     original text blocks : [ 'Hel', 'lo,', ' world!' ]
     search / replace: 'Hello,' / 'Hi!'
     output blocks : [ 'Hi!', '', ' world!' ]
-    
+
     original text blocks : [ 'Hel', 'lo,', ' world!' ]
     search / replace: 'Hello, world' / 'Hi!'
     output blocks : [ 'Hi!!', '', '' ]
-    
+
     original text blocks : [ 'Hel', 'lo,', ' world!' ]
     search / replace: 'Hel' / 'Hal'
     output blocks : [ 'Hal', 'lo,', ' world!' ]
-    
+
     @param instance  document: The original document
     @param str       search: The text to search for (regexp)
     @param mixed replace: The replacement text or lxml.etree element to
                           append, or a list of etree elements
     @param int       bs: See above
-    
+
     @return instance The document with replacement applied
-    
+
     """
     # Enables debug output
     DEBUG = False
-    
+
     newdocument = document
-    
+
     # Compile the search regexp
     searchre = re.compile(search)
-    
+
     # Will match against searchels. Searchels is a list that contains last
     # n text elements found in the document. 1 < n < bs
     searchels = []
-    
+
     for element in newdocument.iter():
         if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
             if element.text:
@@ -660,7 +662,7 @@ def advReplace(document, search, replace, bs=3):
                 if len(searchels) > bs:
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
-    
+
                 # Search all combinations, of searchels, starting from
                 # smaller up to bigger ones
                 # l = search lenght
@@ -680,12 +682,12 @@ def advReplace(document, search, replace, bs=3):
                             txtsearch = ''
                             for k in e:
                                 txtsearch += searchels[k].text
-    
+
                             # Searcs for the text in the whole txtsearch
                             match = searchre.search(txtsearch)
                             if match:
                                 found = True
-    
+
                                 # I've found something :)
                                 if DEBUG:
                                     log.debug("Found element!")
@@ -701,7 +703,7 @@ def advReplace(document, search, replace, bs=3):
                                         log.debug("Will replace with LIST OF ELEMENTS")
                                     else:
                                         log.debug("Will replace with:", re.sub(search, replace, txtsearch))
-    
+
                                 curlen = 0
                                 replaced = False
                                 for i in e:
@@ -787,7 +789,7 @@ def appproperties():
     """
     Create app-specific properties. See docproperties() for more common
     document properties.
-    
+
     """
     appprops = makeelement('Properties', nsprefix='ep')
     appprops = etree.fromstring(
@@ -853,11 +855,11 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     '''Save a modified document'''
     assert os.path.isdir(template_dir)
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
-    
+
     # Move to the template data path
     prev_dir = os.path.abspath('.') # save previous working dir
     os.chdir(template_dir)
-    
+
     # Serialize our trees into out zip file
     treesandfiles = {document:'word/document.xml',
                      coreprops:'docProps/core.xml',
@@ -869,7 +871,7 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
         log.info('Saving: '+treesandfiles[tree]    )
         treestring = etree.tostring(tree, pretty_print=True)
         docxfile.writestr(treesandfiles[tree], treestring)
-    
+
     # Add & compress support files
     files_to_ignore = ['.DS_Store'] # nuisance from some os's
     for dirpath, dirnames, filenames in os.walk('.'):
