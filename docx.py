@@ -378,11 +378,13 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
+
+    base_pic_name = os.path.basename(picname)
     media_dir = join(template_dir, 'word', 'media')
     if not os.path.isdir(media_dir):
-        os.mkdir(media_dir)
-    shutil.copyfile(picname, join(media_dir, picname))
-    
+       os.mkdir(media_dir)
+    shutil.copyfile(picname, join(media_dir, base_pic_name))
+
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
         # If not, get info from the picture itself
@@ -399,8 +401,8 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     picrelid = 'rId' + str(len(relationshiplist) + 1)
     relationshiplist.append([
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
-        'media/'+picname])
-    
+        'media/' + base_pic_name])
+
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
     blipfill = makeelement('blipFill', nsprefix='pic')
@@ -413,7 +415,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     # 2. The non visual picture properties
     nvpicpr = makeelement('nvPicPr', nsprefix='pic')
     cnvpr = makeelement('cNvPr', nsprefix='pic',
-                        attributes={'id':'0', 'name':'Picture 1', 'descr':picname})
+                        attributes={'id': '0', 'name': 'Picture 1', 'descr': base_pic_name})
     nvpicpr.append(cnvpr)
     cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
     cnvpicpr.append(makeelement('picLocks', nsprefix='a',
