@@ -382,7 +382,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
     base_pic_name = os.path.basename(picname)
     media_dir = join(template_dir, 'word', 'media')
     if not os.path.isdir(media_dir):
-       os.mkdir(media_dir)
+        os.mkdir(media_dir)
     shutil.copyfile(picname, join(media_dir, base_pic_name))
 
     # Check if the user has specified a size
