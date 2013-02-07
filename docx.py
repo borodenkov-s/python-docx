@@ -221,6 +221,7 @@ def contenttypes():
         , 'jpeg' : 'image/jpeg'
         , 'jpg'  : 'image/jpeg'
         , 'png'  : 'image/png'
+        , 'emf'  : 'image/x-emf'
         , 'rels' : 'application/vnd.openxmlformats-package.relationships+xml'
         , 'xml'  : 'application/xml'
         }
