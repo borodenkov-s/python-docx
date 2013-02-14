@@ -271,7 +271,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                              color: The color of the border, in hex or 'auto'
                              space: The space, measured in points
                              sz: The size of the border, in eights of a point
-                             val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.htm
+                             val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.html
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
                               'align': specify the alignment, see paragraph documentation.
