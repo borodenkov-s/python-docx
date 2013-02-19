@@ -21,7 +21,7 @@ if __name__ == '__main__':
     document = newdocument()
 
     # This xpath location is where most interesting content lives
-    body = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    body = document.xpath('/w:document/w:body', namespaces=NSPREFIXES)[0]
 
     # Append two headings and a paragraph
     body.append(heading("Welcome to Python's docx module", 1))

@@ -26,7 +26,7 @@ def simpledoc():
     """Make a docx (document, relationships) for use in other docx tests"""
     relationships = relationshiplist()
     document = newdocument()
-    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody = document.xpath('/w:document/w:body', namespaces=NSPREFIXES)[0]
     docbody.append(heading('Heading 1',1)  )   
     docbody.append(heading('Heading 2',2))
     docbody.append(paragraph('Paragraph 1'))
@@ -47,7 +47,7 @@ def simpledoc():
 def testsearchandreplace():
     """Ensure search and replace functions work"""
     document, docbody, relationships = simpledoc()
-    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody = document.xpath('/w:document/w:body', namespaces=NSPREFIXES)[0]
     assert search(docbody, 'ing 1')
     assert search(docbody, 'ing 2')
     assert search(docbody, 'graph 3')
@@ -66,7 +66,7 @@ def testtextextraction():
 def testunsupportedpagebreak():
     """Ensure unsupported page break types are trapped"""
     document = newdocument()
-    docbody = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    docbody = document.xpath('/w:document/w:body', namespaces=NSPREFIXES)[0]
     try:
         docbody.append(pagebreak(type='unsup'))
     except ValueError:
