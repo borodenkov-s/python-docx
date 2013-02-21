@@ -6,9 +6,25 @@ If you need to make documents from scratch, use this file as a basis for your wo
 
 Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
+<<<<<<< HEAD
 '''
 <<<<<<< HEAD
 from docx.dsl import *
+=======
+"""
+
+from docx.document import *
+
+if __name__ == '__main__':
+    # Default set of relationshipships - the minimum components of a document
+    relationships = relationshiplist()
+
+    # Make a new document tree - this is the main part of a Word document
+    document = newdocument()
+
+    # This xpath location is where most interesting content lives
+    body = document.xpath('/w:document/w:body', namespaces=NSPREFIXES)[0]
+>>>>>>> 7848a674630e83b6ef9c840e0e0ea94fb7a4120c
 
 if __name__ == '__main__':        
     # Make a new document
