@@ -1,3 +1,4 @@
+<<<<<<< HEAD
   
 
 
@@ -17,6 +18,529 @@
     <meta name="msapplication-TileImage" content="/windows-tile.png">
     <meta name="msapplication-TileColor" content="#ffffff">
 
+=======
+#!/usr/bin/env python2.6
+# -*- coding: utf-8 -*-
+'''
+Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
+
+Part of Python's docx module - http://github.com/mikemaccana/python-docx
+See LICENSE for licensing information.
+'''
+
+import logging
+from lxml import etree
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+import zipfile
+import shutil
+import re
+import time
+import os
+from os.path import join
+
+log = logging.getLogger(__name__)
+
+# Record template directory's location which is just 'template' for a docx
+# developer or 'site-packages/docx-template' if you have installed docx
+template_dir = join(os.path.dirname(__file__),'docx-template') # installed
+if not os.path.isdir(template_dir):
+    template_dir = join(os.path.dirname(__file__),'template') # dev
+
+# All Word prefixes / namespace matches used in document.xml & core.xml.
+# LXML doesn't actually use prefixes (just the real namespace) , but these
+# make it easier to copy Word output more easily.
+nsprefixes = {
+    # Text Content
+    'mv':'urn:schemas-microsoft-com:mac:vml',
+    'mo':'http://schemas.microsoft.com/office/mac/office/2008/main',
+    've':'http://schemas.openxmlformats.org/markup-compatibility/2006',
+    'o':'urn:schemas-microsoft-com:office:office',
+    'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    'm':'http://schemas.openxmlformats.org/officeDocument/2006/math',
+    'v':'urn:schemas-microsoft-com:vml',
+    'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+    'w10':'urn:schemas-microsoft-com:office:word',
+    'wne':'http://schemas.microsoft.com/office/word/2006/wordml',
+    # Drawing
+    'wp':'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+    'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
+    'pic':'http://schemas.openxmlformats.org/drawingml/2006/picture',
+    # Properties (core and extended)
+    'cp':"http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+    'dc':"http://purl.org/dc/elements/1.1/",
+    'dcterms':"http://purl.org/dc/terms/",
+    'dcmitype':"http://purl.org/dc/dcmitype/",
+    'xsi':"http://www.w3.org/2001/XMLSchema-instance",
+    'ep':'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+    # Content Types (we're just making up our own namespaces here to save time)
+    'ct':'http://schemas.openxmlformats.org/package/2006/content-types',
+    # Package Relationships (we're just making up our own namespaces here to save time)
+    'pr':'http://schemas.openxmlformats.org/package/2006/relationships'
+    }
+
+def opendocx(file):
+    '''Open a docx file, return a document XML tree'''
+    mydoc = zipfile.ZipFile(file)
+    xmlcontent = mydoc.read('word/document.xml')
+    document = etree.fromstring(xmlcontent)
+    return document
+
+def newdocument():
+    document = makeelement('document')
+    document.append(makeelement('body'))
+    return document
+
+def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
+    '''Create an element & return it'''
+    # Deal with list of nsprefix by making namespacemap
+    namespacemap = None
+    if isinstance(nsprefix, list):
+        namespacemap = {}
+        for prefix in nsprefix:
+            namespacemap[prefix] = nsprefixes[prefix]
+        nsprefix = nsprefix[0] # FIXME: rest of code below expects a single prefix
+    if nsprefix:
+        namespace = '{'+nsprefixes[nsprefix]+'}'
+    else:
+        # For when namespace = None
+        namespace = ''
+    newelement = etree.Element(namespace+tagname, nsmap=namespacemap)
+    # Add attributes with namespaces
+    if attributes:
+        # If they haven't bothered setting attribute namespace, use an empty string
+        # (equivalent of no namespace)
+        if not attrnsprefix:
+            # Quick hack: it seems every element that has a 'w' nsprefix for its tag uses the same prefix for it's attributes
+            if nsprefix == 'w':
+                attributenamespace = namespace
+            else:
+                attributenamespace = ''
+        else:
+            attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
+
+        for tagattribute in attributes:
+            newelement.set(attributenamespace+tagattribute, attributes[tagattribute])
+    if tagtext:
+        newelement.text = tagtext
+    return newelement
+
+def pagebreak(type='page', orient='portrait'):
+    '''Insert a break, default 'page'.
+    See http://openxmldeveloper.org/forums/thread/4075.aspx
+    Return our page break element.'''
+    # Need to enumerate different types of page breaks.
+    validtypes = ['page', 'section']
+    if type not in validtypes:
+        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (type, validtypes))
+    pagebreak = makeelement('p')
+    if type == 'page':
+        run = makeelement('r')
+        br = makeelement('br',attributes={'type':type})
+        run.append(br)
+        pagebreak.append(run)
+    elif type == 'section':
+        pPr = makeelement('pPr')
+        sectPr = makeelement('sectPr')
+        if orient == 'portrait':
+            pgSz = makeelement('pgSz',attributes={'w':'12240','h':'15840'})
+        elif orient == 'landscape':
+            pgSz = makeelement('pgSz',attributes={'h':'12240','w':'15840', 'orient':'landscape'})
+        sectPr.append(pgSz)
+        pPr.append(sectPr)
+        pagebreak.append(pPr)
+    return pagebreak
+
+def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
+    '''Make a new paragraph element, containing a run, and some text.
+    Return the paragraph element.
+
+    @param string jc: Paragraph alignment, possible values:
+                      left, center, right, both (justified), ...
+                      see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
+                      for a full list
+
+    If paratext is a list, spawn multiple run/text elements.
+    Support text styles (paratext must then be a list of lists in the form
+    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+
+    example
+    paratext = [
+        ('some bold text', 'b'),
+        ('some normal text', ''),
+        ('some italic underlined text', 'iu'),
+    ]
+
+    '''
+    # Make our elements
+    paragraph = makeelement('p')
+
+    if isinstance(paratext, list):
+        text = []
+        for pt in paratext:
+            if isinstance(pt, (list,tuple)):
+                text.append([makeelement('t',tagtext=pt[0]), pt[1]])
+            else:
+                text.append([makeelement('t',tagtext=pt), ''])
+    else:
+        text = [[makeelement('t',tagtext=paratext),''],]
+    pPr = makeelement('pPr')
+    pStyle = makeelement('pStyle',attributes={'val':style})
+    pJc = makeelement('jc',attributes={'val':jc})
+    pPr.append(pStyle)
+    pPr.append(pJc)
+
+    # Add the text the run, and the run to the paragraph
+    paragraph.append(pPr)
+    for t in text:
+        run = makeelement('r')
+        rPr = makeelement('rPr')
+        # Apply styles
+        if t[1].find('b') > -1:
+            b = makeelement('b')
+            rPr.append(b)
+        if t[1].find('u') > -1:
+            u = makeelement('u',attributes={'val':'single'})
+            rPr.append(u)
+        if t[1].find('i') > -1:
+            i = makeelement('i')
+            rPr.append(i)
+        run.append(rPr)
+        # Insert lastRenderedPageBreak for assistive technologies like
+        # document narrators to know when a page break occurred.
+        if breakbefore:
+            lastRenderedPageBreak = makeelement('lastRenderedPageBreak')
+            run.append(lastRenderedPageBreak)
+        run.append(t[0])
+        paragraph.append(run)
+    # Return the combined paragraph
+    return paragraph
+
+def contenttypes():
+    # FIXME - doesn't quite work...read from string as temp hack...
+    #types = makeelement('Types',nsprefix='ct')
+    types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
+    parts = {
+        '/word/theme/theme1.xml':'application/vnd.openxmlformats-officedocument.theme+xml',
+        '/word/fontTable.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml',
+        '/docProps/core.xml':'application/vnd.openxmlformats-package.core-properties+xml',
+        '/docProps/app.xml':'application/vnd.openxmlformats-officedocument.extended-properties+xml',
+        '/word/document.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml',
+        '/word/settings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml',
+        '/word/numbering.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml',
+        '/word/styles.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml',
+        '/word/webSettings.xml':'application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml'
+        }
+    for part in parts:
+        types.append(makeelement('Override',nsprefix=None,attributes={'PartName':part,'ContentType':parts[part]}))
+    # Add support for filetypes
+    filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml','xml':'application/xml','jpeg':'image/jpeg','gif':'image/gif','png':'image/png'}
+    for extension in filetypes:
+        types.append(makeelement('Default',nsprefix=None,attributes={'Extension':extension,'ContentType':filetypes[extension]}))
+    return types
+
+def heading(headingtext,headinglevel,lang='en'):
+    '''Make a new heading, return the heading element'''
+    lmap = {
+        'en': 'Heading',
+        'it': 'Titolo',
+    }
+    # Make our elements
+    paragraph = makeelement('p')
+    pr = makeelement('pPr')
+    pStyle = makeelement('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})
+    run = makeelement('r')
+    text = makeelement('t',tagtext=headingtext)
+    # Add the text the run, and the run to the paragraph
+    pr.append(pStyle)
+    run.append(text)
+    paragraph.append(pr)
+    paragraph.append(run)
+    # Return the combined paragraph
+    return paragraph
+
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, headstyle={}):
+    '''Get a list of lists, return a table
+
+        @param list contents: A list of lists describing contents
+                              Every item in the list can be a string or a valid
+                              XML element itself. It can also be a list. In that case
+                              all the listed elements will be merged into the cell.
+        @param bool heading: Tells whether first line should be threated as heading
+                             or not
+        @param list colw: A list of interger. The list must have same element
+                          count of content lines. Specify column Widths in
+                          wunitS
+        @param string cwunit: Unit user for column width:
+                                'pct': fifties of a percent
+                                'dxa': twenties of a point
+                                'nil': no width
+                                'auto': automagically determined
+        @param int tblw: Table width
+        @param int twunit: Unit used for table width. Same as cwunit
+        @param dict borders: Dictionary defining table border. Supported keys are:
+                             'top', 'left', 'bottom', 'right', 'insideH', 'insideV', 'all'
+                             When specified, the 'all' key has precedence over others.
+                             Each key must define a dict of border attributes:
+                             color: The color of the border, in hex or 'auto'
+                             space: The space, measured in points
+                             sz: The size of the border, in eights of a point
+                             val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.htm
+        @param list celstyle: Specify the style for each colum, list of dicts.
+                              supported keys:
+                              'align': specify the alignment, see paragraph documentation,
+        @param dict headstyle: Specify the style for headers. Default style is:
+                               'val':'clear','color':'auto','fill':'548DD4',
+                               'themeFill':'text2','themeFillTint':'99'.
+                               Specify None for a key to remove it.
+                               ( See BASE_HEADER_STYLE )
+                               Any key can be overridden.
+        @return lxml.etree: Generated XML etree element
+    '''
+    BASE_HEADER_STYLE = {'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'}
+    table = makeelement('tbl')
+    columns = len(contents[0])
+    # Table properties
+    tableprops = makeelement('tblPr')
+    tablestyle = makeelement('tblStyle',attributes={'val':'ColorfulGrid-Accent1'})
+    tableprops.append(tablestyle)
+    tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
+    tableprops.append(tablewidth)
+    if len(borders.keys()):
+        tableborders = makeelement('tblBorders')
+        for b in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+            if b in borders.keys() or 'all' in borders.keys():
+                k = 'all' if 'all' in borders.keys() else b
+                attrs = {}
+                for a in borders[k].keys():
+                    attrs[a] = unicode(borders[k][a])
+                borderelem = makeelement(b,attributes=attrs)
+                tableborders.append(borderelem)
+        tableprops.append(tableborders)
+    tablelook = makeelement('tblLook',attributes={'val':'0400'})
+    tableprops.append(tablelook)
+    table.append(tableprops)
+    # Table Grid
+    tablegrid = makeelement('tblGrid')
+    for i in range(columns):
+        tablegrid.append(makeelement('gridCol',attributes={'w':str(colw[i]) if colw else '2390'}))
+    table.append(tablegrid)
+    # Heading Row
+    row = makeelement('tr')
+    rowprops = makeelement('trPr')
+    cnfStyle = makeelement('cnfStyle',attributes={'val':'000000100000'})
+    rowprops.append(cnfStyle)
+    row.append(rowprops)
+    if heading:
+        i = 0
+        for heading in contents[0]:
+            cell = makeelement('tc')
+            # Cell properties
+            cellprops = makeelement('tcPr')
+            if colw:
+                wattr = {'w':str(colw[i]),'type':cwunit}
+            else:
+                wattr = {'w':'0','type':'auto'}
+            cellwidth = makeelement('tcW',attributes=wattr)
+            headerstyle = BASE_HEADER_STYLE
+            for k in headstyle.keys():
+                if headstyle[k] == None:
+                    if k in headerstyle:
+                        del headerstyle[k]
+                else:
+                    headerstyle[k] = headstyle[k]
+            cellstyle = makeelement('shd',attributes=headerstyle)
+            cellprops.append(cellwidth)
+            cellprops.append(cellstyle)
+            cell.append(cellprops)
+            # Paragraph (Content)
+            if not isinstance(heading, (list, tuple)):
+                heading = [heading,]
+            for h in heading:
+                if isinstance(h, etree._Element):
+                    cell.append(h)
+                else:
+                    cell.append(paragraph(h,jc='center'))
+            row.append(cell)
+            i += 1
+        table.append(row)
+    # Contents Rows
+    for contentrow in contents[1 if heading else 0:]:
+        row = makeelement('tr')
+        i = 0
+        for content in contentrow:
+            cell = makeelement('tc')
+            # Properties
+            cellprops = makeelement('tcPr')
+            if colw:
+                wattr = {'w':str(colw[i]),'type':cwunit}
+            else:
+                wattr = {'w':'0','type':'auto'}
+            cellwidth = makeelement('tcW',attributes=wattr)
+            cellprops.append(cellwidth)
+            cell.append(cellprops)
+            # Paragraph (Content)
+            if not isinstance(content, (list, tuple)):
+                content = [content,]
+            for c in content:
+                if isinstance(c, etree._Element):
+                    cell.append(c)
+                else:
+                    if celstyle and 'align' in celstyle[i].keys():
+                        align = celstyle[i]['align']
+                    else:
+                        align = 'left'
+                    cell.append(paragraph(c,jc=align))
+            row.append(cell)
+            i += 1
+        table.append(row)
+    return table
+
+def picture(relationshiplist, picname, picdescription, pixelwidth=None,
+            pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+    '''Take a relationshiplist, picture file name, and return a paragraph containing the image
+    and an updated relationshiplist'''
+    # http://openxmldeveloper.org/articles/462.aspx
+    # Create an image. Size may be specified, otherwise it will based on the
+    # pixel size of image. Return a paragraph containing the picture'''
+    # Copy the file into the media dir
+    media_dir = join(template_dir,'word','media')
+    if not os.path.isdir(media_dir):
+        os.mkdir(media_dir)
+    shutil.copyfile(picname, join(media_dir,picname))
+
+    # Check if the user has specified a size
+    if not pixelwidth or not pixelheight:
+        # If not, get info from the picture itself
+        pixelwidth,pixelheight = Image.open(picname).size[0:2]
+
+    # OpenXML measures on-screen objects in English Metric Units
+    # 1cm = 36000 EMUs
+    emuperpixel = 12667
+    width = str(pixelwidth * emuperpixel)
+    height = str(pixelheight * emuperpixel)
+
+    # Set relationship ID to the first available
+    picid = '2'
+    picrelid = 'rId'+str(len(relationshiplist)+1)
+    relationshiplist.append([
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        'media/'+picname])
+
+    # There are 3 main elements inside a picture
+    # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+    blipfill = makeelement('blipFill',nsprefix='pic')
+    blipfill.append(makeelement('blip',nsprefix='a',attrnsprefix='r',attributes={'embed':picrelid}))
+    stretch = makeelement('stretch',nsprefix='a')
+    stretch.append(makeelement('fillRect',nsprefix='a'))
+    blipfill.append(makeelement('srcRect',nsprefix='a'))
+    blipfill.append(stretch)
+
+    # 2. The non visual picture properties
+    nvpicpr = makeelement('nvPicPr',nsprefix='pic')
+    cnvpr = makeelement('cNvPr',nsprefix='pic',
+                        attributes={'id':'0','name':'Picture 1','descr':picname})
+    nvpicpr.append(cnvpr)
+    cnvpicpr = makeelement('cNvPicPr',nsprefix='pic')
+    cnvpicpr.append(makeelement('picLocks', nsprefix='a',
+                    attributes={'noChangeAspect':str(int(nochangeaspect)),
+                    'noChangeArrowheads':str(int(nochangearrowheads))}))
+    nvpicpr.append(cnvpicpr)
+
+    # 3. The Shape properties
+    sppr = makeelement('spPr',nsprefix='pic',attributes={'bwMode':'auto'})
+    xfrm = makeelement('xfrm',nsprefix='a')
+    xfrm.append(makeelement('off',nsprefix='a',attributes={'x':'0','y':'0'}))
+    xfrm.append(makeelement('ext',nsprefix='a',attributes={'cx':width,'cy':height}))
+    prstgeom = makeelement('prstGeom',nsprefix='a',attributes={'prst':'rect'})
+    prstgeom.append(makeelement('avLst',nsprefix='a'))
+    sppr.append(xfrm)
+    sppr.append(prstgeom)
+
+    # Add our 3 parts to the picture element
+    pic = makeelement('pic',nsprefix='pic')
+    pic.append(nvpicpr)
+    pic.append(blipfill)
+    pic.append(sppr)
+
+    # Now make the supporting elements
+    # The following sequence is just: make element, then add its children
+    graphicdata = makeelement('graphicData',nsprefix='a',
+        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+    graphicdata.append(pic)
+    graphic = makeelement('graphic',nsprefix='a')
+    graphic.append(graphicdata)
+
+    framelocks = makeelement('graphicFrameLocks',nsprefix='a',attributes={'noChangeAspect':'1'})
+    framepr = makeelement('cNvGraphicFramePr',nsprefix='wp')
+    framepr.append(framelocks)
+    docpr = makeelement('docPr',nsprefix='wp',
+        attributes={'id':picid,'name':'Picture 1','descr':picdescription})
+    effectextent = makeelement('effectExtent',nsprefix='wp',
+        attributes={'l':'25400','t':'0','r':'0','b':'0'})
+    extent = makeelement('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
+    inline = makeelement('inline',
+        attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"},nsprefix='wp')
+    inline.append(extent)
+    inline.append(effectextent)
+    inline.append(docpr)
+    inline.append(framepr)
+    inline.append(graphic)
+    drawing = makeelement('drawing')
+    drawing.append(inline)
+    run = makeelement('r')
+    run.append(drawing)
+    paragraph = makeelement('p')
+    paragraph.append(run)
+    return relationshiplist,paragraph
+
+
+def search(document,search):
+    '''Search a document for a regex, return success / fail result'''
+    result = False
+    searchre = re.compile(search)
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                if searchre.search(element.text):
+                    result = True
+    return result
+
+def replace(document,search,replace):
+    '''Replace all occurences of string with a different string, return updated document'''
+    newdocument = document
+    searchre = re.compile(search)
+    for element in newdocument.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                if searchre.search(element.text):
+                    element.text = re.sub(search,replace,element.text)
+    return newdocument
+
+def clean(document):
+    """ Perform misc cleaning operations on documents.
+        Returns cleaned document.
+    """
+
+    newdocument = document
+
+    # Clean empty text and r tags
+    for t in ('t', 'r'):
+        rmlist = []
+        for element in newdocument.iter():
+            if element.tag == '{%s}%s' % (nsprefixes['w'], t):
+                if not element.text and not len(element):
+                    rmlist.append(element)
+        for element in rmlist:
+            element.getparent().remove(element)
+
+    return newdocument
+
+def findTypeParent(element, tag):
+    """ Finds fist parent of element of the given type
+>>>>>>> a8ff0e4a98514d856b631d939f84a574f0e9e447
     
     
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />

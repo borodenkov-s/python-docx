@@ -2,6 +2,7 @@
 .coverage
 *.pyc
 *.docx
+!example-template.docx
 *.kpf
 build
 problems
