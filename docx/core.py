@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-<<<<<<< HEAD
 from datetime import datetime
 import logging
 import os
@@ -123,40 +122,12 @@ class Docx(object):
         if create_new_doc:
             self.created = datetime.utcnow()
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def __new__(cls, *args, **kwargs):
         # Make getters and setter for the core properties
         def set_coreprop_property(prop, to_python=unicode, to_str=unicode):
             getter = lambda self: to_python(self._get_coreprop_val(prop))
             setter = lambda self, val: self._set_coreprop_val(prop, to_str(val))
             setattr(cls, prop, property(getter, setter))
-<<<<<<< HEAD
-            
-        for prop in ['title', 'subject', 'creator', 'description', 
-                     'lastModifiedBy', 'revision']:
-            set_coreprop_property(prop)
-            
-        for datetimeprop in ['created', 'modified']:
-            set_coreprop_property(datetimeprop, 
-                to_python=dateutil.parser.parse,
-                to_str=lambda obj: (obj.isoformat() 
-                                    if hasattr(obj, 'isoformat') 
-                                    else dateutil.parser.parse(obj).isoformat())
-            )
-        return super(Docx, cls).__new__(cls, *args, **kwargs)
-            
-    def append(self, *args, **kwargs):
-        return self.docbody.append(*args, **kwargs)
-    
-    def search(self, search):
-        '''Search a document for a regex, return success / fail result'''
-        document = self.docbody
-        
-        result = False
-        searchre = re.compile(search)
-        for element in document.iter():
-            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
-=======
 
         for prop in ['title', 'subject', 'creator', 'description',
                      'lastModifiedBy', 'revision']:
@@ -227,49 +198,28 @@ class Docx(object):
         searchre = re.compile(search)
         for element in document.iter():
             if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
                 if element.text:
                     if searchre.search(element.text):
                         result = True
         return result
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def replace(self, search, replace):
         '''Replace all occurences of string with a different string, return updated document'''
         newdocument = self.docbody
         searchre = re.compile(search)
         for element in newdocument.iter():
-<<<<<<< HEAD
-            if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
-                if element.text:
-                    if searchre.search(element.text):
-                        element.text = re.sub(search,replace,element.text)
-        return newdocument
-    
-=======
             if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
                 if element.text:
                     if searchre.search(element.text):
                         element.text = re.sub(search, replace, element.text)
         return newdocument
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def clean(self):
         """ Perform misc cleaning operations on documents.
             Returns cleaned document.
         """
-<<<<<<< HEAD
-    
-        newdocument = self.document
-    
-=======
-
         newdocument = self.docbody
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         # Clean empty text and r tags
         for t in ('t', 'r'):
             rmlist = []
@@ -279,19 +229,6 @@ class Docx(object):
                         rmlist.append(element)
             for element in rmlist:
                 element.getparent().remove(element)
-<<<<<<< HEAD
-    
-        return newdocument
-    
-    def advanced_replace(self, search, replace, max_blocks=3):
-        '''Replace all occurences of string with a different string, return updated document
-    
-        This is a modified version of python-docx.replace() that takes into
-        account blocks of <bs> elements at a time. The replace element can also
-        be a string or an xml etree element.
-    
-=======
-
         return newdocument
 
     def load_style(self, stylefile):
@@ -312,7 +249,6 @@ class Docx(object):
         account blocks of <bs> elements at a time. The replace element can only
         be a string currently. (There is some bug with element replacing)
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         What it does:
         It searches the entire document body for text blocks.
         Then scan thos text blocks for replace.
@@ -321,26 +257,11 @@ class Docx(object):
         The smaller matching group of blocks (up to bs) is then adopted.
         If the matching group has more than one block, blocks other than first
         are cleared and all the replacement text is put on first block.
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         Examples:
         original text blocks : [ 'Hel', 'lo,', ' world!' ]
         search / replace: 'Hello,' / 'Hi!'
         output blocks : [ 'Hi!', '', ' world!' ]
-<<<<<<< HEAD
-    
-        original text blocks : [ 'Hel', 'lo,', ' world!' ]
-        search / replace: 'Hello, world' / 'Hi!'
-        output blocks : [ 'Hi!!', '', '' ]
-    
-        original text blocks : [ 'Hel', 'lo,', ' world!' ]
-        search / replace: 'Hel' / 'Hal'
-        output blocks : [ 'Hal', 'lo,', ' world!' ]
-    
-=======
 
         original text blocks : [ 'Hel', 'lo,', ' world!' ]
         search / replace: 'Hello, world' / 'Hi!'
@@ -350,12 +271,6 @@ class Docx(object):
         search / replace: 'Hel' / 'Hal'
         output blocks : [ 'Hal', 'lo,', ' world!' ]
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
-        @param instance  document: The original document
-        @param str       search: The text to search for (regexp)
-        @param mixed replace: The replacement text or lxml.etree element to
-                              append, or a list of etree elements
-<<<<<<< HEAD
         @param int       max_blocks: See above
     
         @return instance The document with replacement applied
@@ -626,60 +541,21 @@ class Docx(object):
     def _get_etree(self, xmldoc):
         return etree.fromstring(self._docx.read(xmldoc))
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def _load_etree(self, name, xmldoc):
         setattr(self, name, self._get_etree(xmldoc))
 
     def template(self, cx, max_blocks=5, raw_document=False):
         """
-<<<<<<< HEAD
-        Accepts a context dictionary (cx) and looks for the dict keys wrapped 
-        in {{key}}. Replaces occurances with the correspoding value from the
-        cx dictionary.
-        
-=======
         Accepts a context dictionary (cx) and looks for the dict keys wrapped
         in {{key}}. Replaces occurances with the corresponding value from the
         cx dictionary.
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         example:
             with the context...
                 cx = {
                     'name': 'James',
                     'lang': 'English'
                 }
-<<<<<<< HEAD
-            
-            ...and a docx file containing:
-                
-                Hi! My name is {{name}} and I speak {{lang}}
-                
-            Calling `docx.template(cx)` will return a new docx instance (the
-            original is not modified) that looks like:
-            
-                Hi! My name is James and I speak English
-                
-            Note: the template must not have spaces in the curly braces unless
-            the dict key does (i.e., `{{ name }}` will not work unless your
-            dictionary has `{" name ": ...}`)
-                
-        The `raw_document` argument accepts a boolean, which (if True) will 
-        treat the word/document.xml file as a text template (rather than only 
-        replacing text that is visible in the document via a word processor)
-        
-        If you pass `max_blocks=None` you will cause the template function to
-        use `docx.replace()` rather than `docx.advanced_replace()`.
-        
-        When `max_blocks` is a number, it is passed to the advanced replace
-        method as is.   
-        """
-        output = self.copy()
-        
-        if raw_document:
-            raw_doc = etree.tostring(output.document)
-            
-=======
 
             ...and a docx file containing:
 
@@ -709,43 +585,10 @@ class Docx(object):
         if raw_document:
             raw_doc = etree.tostring(output.document)
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         for key, val in cx.items():
             key = "{{%s}}" % key
             if raw_document:
                 raw_doc = raw_doc.replace(key, unicode(val))
-<<<<<<< HEAD
-            elif max_blocks is None: 
-                output.replace(key, unicode(val))
-            else:                  
-                output.advanced_replace(key, val, max_blocks=max_blocks)
-            
-        if raw_document:
-            output.document = etree.fromstring(raw_doc)
-            
-        return output
-
-    def save(self, dest=None):
-        self.modified = datetime.utcnow()
-        
-        outf = NamedTemporaryFile()
-        out_zip = ZipFile(outf.name, mode='w')
-        
-        orig_contents = self._docx.namelist()
-        modified_contents = self.trees_and_files.values()
-        
-        # Serialize our trees into our zip file
-        for tree, dest_file in self.trees_and_files.items():
-            log.info('Saving: ' + dest_file)
-            out_zip.writestr(dest_file, etree.tostring(getattr(self, tree), pretty_print=True))
-        
-        for dest_file in set(orig_contents) - set(modified_contents):
-            out_zip.writestr(dest_file, self._docx.read(dest_file))
-    
-        
-        # docx file doesn't save properly unless it gets closed
-        out_zip.close()
-=======
             elif max_blocks is None:
                 output.replace(key, unicode(val))
             else:
@@ -781,22 +624,11 @@ class Docx(object):
 
         out_zip.close()
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
         if dest is not None:
             log.info('Saved new file to: %r', dest)
             shutil.copyfile(outf.name, dest)
             outf.close()
         else:
-<<<<<<< HEAD
-             
-            self._docx.close()
-            
-            shutil.copyfile(outf.name, self._tmp_file.name)
-            
-            # reopen the file so it can continue to be used
-            self._docx = ZipFile(self._tmp_file.name, mode='a')
-            
-=======
             log.info('File saved')
             self._docx.close()
             shutil.copyfile(outf.name, self._tmp_file.name)
@@ -808,7 +640,6 @@ class Docx(object):
         #return outf.name
 
     # check if used ..
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def copy(self):
         tmp = NamedTemporaryFile()
         self.save(tmp.name)
@@ -816,17 +647,6 @@ class Docx(object):
         docx._orig_docx = self._orig_docx
         tmp.close()
         return docx
-<<<<<<< HEAD
-    
-    def __del__(self):
-        try: 
-            self.__empty_docx.close()
-        except AttributeError: 
-            pass
-        self._docx.close()
-        self._tmp_file.close()
-        
-=======
 
     # check if used ..
     def __del__(self):
@@ -837,29 +657,11 @@ class Docx(object):
         self._docx.close()
         self._tmp_file.close()
 
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     def _get_coreprop(self, tagname):
         try:
             return self.coreprops.xpath("*[local-name()='%s']" % tagname)[0]
         except IndexError:
             return None
-<<<<<<< HEAD
-    
-    def _get_coreprop_val(self, tagname):
-        return self._get_coreprop(tagname).text
-    
-    def _set_coreprop_val(self, tagname, val):
-        self._get_coreprop(tagname).text = val
-        
-    def __generate_empty_docx(self):
-        self.__empty_docx = NamedTemporaryFile()
-        loc = self.__empty_docx.name
-        
-        dir_to_docx(template_dir, loc)
-        
-        return loc
-    
-=======
 
     def _get_coreprop_val(self, tagname):
         return self._get_coreprop(tagname).text
@@ -880,7 +682,6 @@ class Docx(object):
         return loc
 
     # check if used ..
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
     @property
     def text(self):
         '''Return the raw text of a document, as a list of paragraphs.'''
@@ -890,24 +691,10 @@ class Docx(object):
         paralist = []
         for element in document.iter():
             # Find p (paragraph) elements
-<<<<<<< HEAD
-            if element.tag == '{'+nsprefixes['w']+'}p':
-=======
-            if element.tag == '{' + nsprefixes['w'] + '}p':
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
-                paralist.append(element)
+            paralist.append(element)
         # Since a single sentence might be spread over multiple text elements, iterate through each
         # paragraph, appending all text (t) children to that paragraphs text.
         for para in paralist:
-<<<<<<< HEAD
-            paratext=u''
-            # Loop through each paragraph
-            for element in para.iter():
-                # Find t (text) elements
-                if element.tag == '{'+nsprefixes['w']+'}t':
-                    if element.text:
-                        paratext = paratext+element.text
-=======
             paratext = u''
             # Loop through each paragraph
             for element in para.iter():
@@ -915,14 +702,10 @@ class Docx(object):
                 if element.tag == '{' + nsprefixes['w'] + '}t':
                     if element.text:
                         paratext = paratext + element.text
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
             # Add our completed paragraph text to the list of paragraph text
             if not len(paratext) == 0:
                 paratextlist.append(paratext)
         return paratextlist
-<<<<<<< HEAD
-=======
-
 
 """ old version keeped for compatibility """
 
@@ -1326,4 +1109,3 @@ def add_page_settings(document, settings):
     docbody.append(sectPr)
 
     return document
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
