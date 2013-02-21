@@ -1,6 +1,7 @@
 .DS_Store
 .coverage
 *.pyc
+*.pyo
 *.docx
 !example-template.docx
 *.kpf
@@ -258,4 +259,12 @@ dist/
 *~
 \#*\#
 .\#*
+<<<<<<< HEAD
 >>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
+=======
+
+/.project
+/.pydevproject
+/.settings
+.temp_template_dir
+>>>>>>> f3612b9ebedbb122f611b6c6e8cb3f13c4a46481

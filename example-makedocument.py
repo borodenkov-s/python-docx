@@ -147,7 +147,7 @@ if __name__ == '__main__':
     docbody.append(dx.paragraph('''For those of us who prefer something simpler, I made docx.''')) 
     
     docbody.append(dx.heading('Making documents',2))
-    docbody.append(dx.paragraph('''The docx module has the following features:'''))
+    docbody.append(dx.paragraph('''The docx module has the following features:''', font='Arial', fontsize=10))
 
     # Add some bullets
     for point in ['Paragraphs','Bullets','Numbered lists','Multiple levels of headings','Tables','Document Properties']:
@@ -289,4 +289,7 @@ if __name__ == '__main__':
     
     # Save our document
     dx.savedocx(document,coreprops,appprops,my_contenttypes,my_websettings,relationships,'Welcome to the Python docx module.docx')
+<<<<<<< HEAD
 >>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
+=======
+>>>>>>> f3612b9ebedbb122f611b6c6e8cb3f13c4a46481
