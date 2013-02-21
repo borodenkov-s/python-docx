@@ -12,11 +12,16 @@ for scheme in INSTALL_SCHEMES.values():
 
 setup(name='docx',
 <<<<<<< HEAD
+<<<<<<< HEAD
       version='0.0.2',
 =======
       version='0.2',
 >>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
       requires=['lxml'],
+=======
+      version='0.0.4',
+      requires=['lxml', 'PIL'],
+>>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
       description='The docx module creates, reads and writes Microsoft Office Word 2007 docx files',
       author='Mike MacCana',
       author_email='python.docx@librelist.com',
