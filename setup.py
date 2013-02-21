@@ -3,7 +3,11 @@ from setuptools import setup
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 from setuptools import setup
+=======
+from setuptools import setup, find_packages
+>>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
 from glob import glob
 =======
 from distutils.core import setup
@@ -41,6 +45,7 @@ Editing documents:
 
 """
 
+<<<<<<< HEAD
 setup(name='docx',
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -118,3 +123,28 @@ setup(
     },
 )
 >>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
+=======
+setup(
+    name='docx',
+    version='0.1.3',
+    requires=(
+        'lxml',
+        'python_dateutil',
+    ),
+    description='The docx module creates, reads and writes Microsoft Office Word 2007 docx files',
+    author='Mike MacCana',
+    author_email='python.docx@librelist.com',
+    url='http://github.com/jiaaro/python-docx',
+    packages=find_packages(),
+    package_dir={'docx': 'docx'},
+    py_modules=['docx'],
+    data_files=[
+          ('docx/template/', glob('docx/template/*.*')),
+          ('docx/template/_rels', glob('docx/template/_rels/.*')),
+          ('docx/template/docProps', glob('docx/template/docProps/*.*')),
+          ('docx/template/word', glob('docx/template/word/*.xml')),
+          ('docx/template/word/_rels', glob('docx/template/word/_rels/*.*')),
+          ('docx/template/word/theme', glob('docx/template/word/theme/*.*')),
+          ],
+)
+>>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
