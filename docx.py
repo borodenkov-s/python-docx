@@ -33,6 +33,7 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 
+from copy import deepcopy
 import logging
 from lxml import etree
 try:
@@ -41,6 +42,7 @@ except ImportError:
     import Image
 import zipfile
 import shutil
+from distutils import dir_util
 import re
 import time
 import os
@@ -50,9 +52,17 @@ log = logging.getLogger(__name__)
 
 # Record template directory's location which is just 'template' for a docx
 # developer or 'site-packages/docx-template' if you have installed docx
+<<<<<<< HEAD
 template_dir = join(os.path.dirname(__file__), 'docx-template')  # installed
 if not os.path.isdir(template_dir):
     template_dir = join(os.path.dirname(__file__), 'template')  # dev
+=======
+TEMPLATE_DIR = join(os.path.dirname(__file__), 'docx-template') # installed
+if not os.path.isdir(TEMPLATE_DIR):
+    TEMPLATE_DIR = join(os.path.dirname(__file__), 'template') # dev
+
+TEMP_TEMPLATE_DIR = join(os.path.dirname(__file__), '.temp_template_dir')
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 
 # All Word prefixes / namespace matches used in document.xml & core.xml.
 # LXML doesn't actually use prefixes (just the real namespace) , but these
@@ -138,12 +148,29 @@ def opendocx(file):
 
 
 def newdocument():
+    build_temp_template_layout()
+
     document = makeelement('document')
     document.append(makeelement('body'))
     return document
 
+<<<<<<< HEAD
 
 def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None, attrnsprefix=None):
+=======
+def build_temp_template_layout():
+    clear_temp_template_layout()
+    dir_util.copy_tree(TEMPLATE_DIR, TEMP_TEMPLATE_DIR)
+
+def clear_temp_template_layout():
+    if os.path.exists(TEMP_TEMPLATE_DIR):
+        if os.path.isdir(TEMP_TEMPLATE_DIR):
+            shutil.rmtree(TEMP_TEMPLATE_DIR)
+        else:
+            os.remove(TEMP_TEMPLATE_DIR)
+
+def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=None):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Create an element & return it'''
     if nsprefix:
         namespace = '{' + nsprefixes[nsprefix] + '}'
@@ -211,9 +238,12 @@ def pagebreak(typeOfBreak='page', orient='portrait'):
     return pagebreak
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
+=======
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
@@ -236,20 +266,32 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 =======
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
-    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+    <text> / <style>. Style is a string containing a combination of 'bui' chars
 
     example
+<<<<<<< HEAD
     paratext =\
         [ ('some bold text', 'b')
         , ('some normal text', '')
         , ('some italic underlined text', 'iu')
         ]
+=======
+    paratext = [
+        ('some bold text', {'style': 'b'}),
+        ('some normal text', {'style': ''}),
+        ('some italic underlined text', {'style': 'iu'}),
+        ('some bold text with color and font size', {'style': 'b', 
+                                                     'color': 'C00000', 
+                                                     'sz': '32'})
+    ]
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 
 >>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     '''
     # Make our elements
     paragraph = makeelement('p')
 
+<<<<<<< HEAD
     if isinstance(paratext, list):
         text = []
         for pt in paratext:
@@ -259,6 +301,19 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
                 text.append([makeelement('t', tagtext=pt), ''])
     else:
         text = [[makeelement('t', tagtext=paratext), ''], ]
+=======
+    if not isinstance(paratext, list):
+        paratext = [paratext]
+    text = []
+    for pt in paratext:
+        if not isinstance(pt, (list,tuple)):
+            pt = (pt, {})
+        lines = pt[0].split('\n')
+        for l in lines[:-1]:
+            text.append((makeelement('t',tagtext=l), pt[1], True))  # with line break
+        text.append((makeelement('t',tagtext=lines[-1]), pt[1], False))  # the last line, without line break        
+
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     pPr = makeelement('pPr')
     pStyle = makeelement('pStyle', attributes={'val': style})
     pJc = makeelement('jc', attributes={'val': jc})
@@ -271,6 +326,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
         run = makeelement('r')
         rPr = makeelement('rPr')
         # Apply styles
+<<<<<<< HEAD
         styleDict = dict(t[1])
         if styleDict.get("bold"):
             b = makeelement('b')
@@ -291,6 +347,22 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
             szCs = makeelement('szCs', attributes={'val': str((int(styleDict.get("size")) * 2))})
             rPr.append(szCs)
 
+=======
+        if t[1].has_key('style'):
+            if t[1]['style'].find('b') > -1:
+                b = makeelement('b')
+                rPr.append(b)
+            if t[1]['style'].find('u') > -1:
+                u = makeelement('u',attributes={'val':'single'})
+                rPr.append(u)
+            if t[1]['style'].find('i') > -1:
+                i = makeelement('i')
+                rPr.append(i)
+        for pr_key in t[1]:
+            if not pr_key == 'style':
+                pr = makeelement(pr_key,attributes={'val': t[1][pr_key]})
+                rPr.append(pr)
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.
@@ -299,16 +371,27 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
             run.append(lastRenderedPageBreak)
 
         run.append(t[0])
+<<<<<<< HEAD
         if bool(styleDict.get("break")) == True:
             br = makeelement(tagname="br")
             run.append(br)
 
+=======
+        # Insert line break if there is multiple lines
+        if t[2]:
+            br = makeelement('br')
+            run.append(br)
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
         paragraph.append(run)
     # Return the combined paragraph
     return paragraph
 
+<<<<<<< HEAD
 
 def contenttypes():
+=======
+def getDefaultContentTypes():
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     # FIXME - doesn't quite work...read from string as temp hack...
     #types = makeelement('Types',nsprefix='ct')
     types = etree.fromstring('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>')
@@ -345,8 +428,22 @@ def contenttypes():
                                                                        'ContentType': filetypes[extension]}))
     return types
 
+<<<<<<< HEAD
 
 def heading(headingtext, headinglevel, lang='en'):
+=======
+def getContentTypes(file=None):
+    '''Get Content Types file from a given Word document'''
+    if file and os.path.isfile(file):
+        mydoc = zipfile.ZipFile(file)
+        xmlcontent = mydoc.read('[Content_Types].xml')
+        types = etree.fromstring(xmlcontent)
+        return types
+    else:
+        return getDefaultContentTypes()
+
+def heading(headingtext,headinglevel,lang='en'):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Make a new heading, return the heading element'''
     lmap = {
         'en': 'Heading',
@@ -367,11 +464,15 @@ def heading(headingtext, headinglevel, lang='en'):
     return paragraph
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, headstyle={}):
 =======
 
 def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
+=======
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None, rowstyle=None, table_props=None):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Get a list of lists, return a table
 
         @param list contents: A list of lists describing contents
@@ -428,7 +529,20 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     tablestyle = makeelement('tblStyle', attributes={'val': ''})
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
     tableprops.append(tablestyle)
+<<<<<<< HEAD
     tablewidth = makeelement('tblW', attributes={'w': str(tblw), 'type': str(twunit)})
+=======
+    if not table_props:
+        table_props = {}
+    for k, attr in table_props.iteritems():
+        if isinstance(attr, etree._Element):        
+            tableprops.append(attr)            
+        else:
+            prop = makeelement(k, attributes=attr)
+            tableprops.append(prop)
+            
+    tablewidth = makeelement('tblW',attributes={'w':str(tblw),'type':str(twunit)})
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     tableprops.append(tablewidth)
     if len(borders.keys()):
         tableborders = makeelement('tblBorders')
@@ -510,7 +624,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     col_spans = {}
     for n,contentrow in enumerate(contents[1 if heading else 0:]):
         row = makeelement('tr')
+        if rowstyle:
+            rowprops = makeelement('trPr')
+            if 'height' in rowstyle:
+                rowHeight = makeelement('trHeight', attributes={'val': str(rowstyle['height']),
+                                                                'hRule': 'exact'})
+            rowprops.append(rowHeight)
+            row.append(rowprops)
         i = 0
+<<<<<<< HEAD
         for content in contentrow:
             row_span = 1
             if isinstance(content, tuple):
@@ -527,12 +649,16 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                     content = content[2]
                 else:
                     content = content[0]
+=======
+        for content_cell in contentrow:
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
             cell = makeelement('tc')
             # Properties
             cellprops = makeelement('tcPr')
             if colw:
                 wattr = {'w': str(colw[i]), 'type': cwunit}
             else:
+<<<<<<< HEAD
                 wattr = {'w': '0', 'type': 'auto'}
             cellwidth = makeelement('tcW', attributes=wattr)
             cellprops.append(cellwidth)
@@ -560,6 +686,37 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                         align = celstyle[i]['align']
                     else:
                         align = 'left'
+=======
+                wattr = {'w':'0','type':'auto'}
+            cellwidth = makeelement('tcW', attributes=wattr)
+            cellprops.append(cellwidth)
+            align = 'left'
+            cell_spec_style = {}
+            if celstyle:
+                cell_spec_style = deepcopy(celstyle[i])
+            if isinstance(content_cell, dict):
+                cell_spec_style.update(content_cell['style'])                
+                content_cell = content_cell['content']
+            # spec. align property
+            SPEC_PROPS = ['align',]
+            if 'align' in cell_spec_style:
+                align = celstyle[i]['align']
+            # any property for cell, by OOXML specification
+            for cs, attrs in cell_spec_style.iteritems():
+                if cs in SPEC_PROPS:
+                    continue
+                cell_prop = makeelement(cs, attributes=attrs)
+                cellprops.append(cell_prop)
+            cell.append(cellprops)
+            # Paragraph (Content)
+            if not isinstance(content_cell, (list, tuple)):
+                content_cell = [content_cell,]
+            for c in content_cell:
+                # cell.append(cellprops)
+                if isinstance(c, etree._Element):
+                    cell.append(c)
+                else:
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
                     cell.append(paragraph(c, jc=align))
             row.append(cell)
             i += 1
@@ -570,6 +727,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 <<<<<<< HEAD
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
 <<<<<<< HEAD
+<<<<<<< HEAD
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
 =======
 def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
@@ -578,12 +736,17 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
             directory=template_dir):
 >>>>>>> c694fde826258c539adaa86cce81e2eb0614c527
+=======
+            pixelheight=None, nochangeaspect=True, nochangearrowheads=True,
+            template_dir=None):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     base_pic_name = os.path.basename(picname)
@@ -598,6 +761,14 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
 =======
     shutil.copyfile(picname, join(media_dir, base_pic_name))
 >>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
+=======
+    if not template_dir:
+        template_dir = TEMP_TEMPLATE_DIR
+    media_dir = join(template_dir, 'word', 'media')
+    if not os.path.isdir(media_dir):
+        os.makedirs(media_dir)
+    shutil.copyfile(picname, join(media_dir,picname))
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -612,6 +783,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
 
     # Set relationship ID to the first available
     picid = '2'
+<<<<<<< HEAD
     picrelid = 'rId' + str(len(relationshiplist) + 1)
     relationshiplist.append([
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
@@ -620,6 +792,12 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelhei
 =======
         'media/' + base_pic_name])
 >>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
+=======
+    picrelid = 'rId'+str(len(relationshiplist)+1)
+    relationshiplist.append(makeelement('Relationship',attributes={'Id': picrelid,
+        'Type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        'Target': 'media/'+picname},nsprefix=None))
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
@@ -704,8 +882,24 @@ def search(document, search):
                     result = True
     return result
 
+<<<<<<< HEAD
 
 def replace(document, search, replace):
+=======
+def findElementByText(document,search):
+    '''Search a document for a regex, return the first matching text element'''
+    res_element = None
+    searchre = re.compile(search)
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                if searchre.search(element.text):
+                    res_element = element
+                    return res_element
+    return res_element
+
+def replace(document,search,replace):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Replace all occurences of string with a different string, return updated document'''
     newdocument = document
     searchre = re.compile(search)
@@ -772,8 +966,12 @@ def findTypeParent(element, tag):
     # Not found
     return None
 
+<<<<<<< HEAD
 
 def AdvSearch(document, search, bs=3):
+=======
+def advSearch(document, search, bs=3):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Return set of all regex matches
 <<<<<<< HEAD
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
@@ -863,12 +1061,8 @@ def AdvSearch(document, search, bs=3):
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
 
-                # Search all combinations, of searchels, starting from
-                # smaller up to bigger ones
-                # l = search lenght
-                # s = search start
-                # e = element IDs to merge
                 found = False
+<<<<<<< HEAD
                 for l in range(1, len(searchels) + 1):
                     if found:
                         break
@@ -892,6 +1086,103 @@ def AdvSearch(document, search, bs=3):
 
 def advReplace(document, search, replace, bs=3):
 <<<<<<< HEAD
+=======
+                txtsearch = ''
+                for el in searchels:
+                    txtsearch += el.text
+
+                # Searcs for the text in the whole txtsearch
+                match = searchre.search(txtsearch)
+                if match:
+                    # I've found something :)
+                    # The end of match must be in the last element
+                    # |----|---s|omet|hing|!---|
+                    # Now we need to find the element containing the start of the match
+                    # Search all combinations, of searchels, starting from
+                    # smaller up to bigger ones
+                    # s = search start
+                    # e = element IDs to merge
+                    els_len = len(searchels)
+                    for s in reversed(range(els_len)):
+                        txtsearch = ''
+                        e = range(s,els_len)
+                        for k in e:
+                            txtsearch += searchels[k].text
+                        match = searchre.search(txtsearch)
+                        if match:
+                            found = True
+                            matches.append(match.group())
+                    # Now we have found the start and ending element of the match
+                    # |  0 |  1 |  2 |  3 |  4 |
+                    # |----|---s|omet|hing|!---|
+                    # e = [1,2,3,4]
+    return set(matches)
+
+
+def advFindElementByText(document, search, bs=3):
+    '''
+    This is an advanced version of python-docx.findElementByText() that takes into
+    account blocks of <bs> elements at a time.
+
+    @param instance  document: The original document
+    @param str       search: The text to search for (regexp)
+                          append, or a list of etree elements
+    @param int       bs: See above
+
+    @return list      The element set contains the search when combined
+    '''
+
+    # Compile the search regexp
+    searchre = re.compile(search)
+
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+
+    for element in document.iter():
+        if element.tag == '{%s}t' % nsprefixes['w']: # t (text) elements
+            if element.text:
+                # Add this element to searchels
+                searchels.append(element)
+                if len(searchels) > bs:
+                    # Is searchels is too long, remove first elements
+                    searchels.pop(0)
+
+                found = False
+                txtsearch = ''
+                for el in searchels:
+                    txtsearch += el.text
+
+                # Searcs for the text in the whole txtsearch
+                match = searchre.search(txtsearch)
+                if match:
+                    # I've found something :)
+                    # The end of match must be in the last element
+                    # |----|---s|omet|hing|!---|
+                    # Now we need to find the element containing the start of the match
+                    # Search all combinations, of searchels, starting from
+                    # smaller up to bigger ones
+                    # s = search start
+                    # e = element IDs to merge
+                    els_len = len(searchels)
+                    for s in reversed(range(els_len)):
+                        txtsearch = ''
+                        e = range(s,els_len)
+                        for k in e:
+                            txtsearch += searchels[k].text
+                        match = searchre.search(txtsearch)
+                        if match:
+                            found = True
+                            return searchels[s:]
+                    # Now we have found the start and ending element of the match
+                    # |  0 |  1 |  2 |  3 |  4 |
+                    # |----|---s|omet|hing|!---|
+                    # e = [1,2,3,4]
+    return None
+
+
+def advReplace(document,search,replace,bs=3):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Replace all occurences of string with a different string, return updated document
 =======
     """
@@ -899,8 +1190,8 @@ def advReplace(document, search, replace, bs=3):
 >>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
     This is a modified version of python-docx.replace() that takes into
-    account blocks of <bs> elements at a time. The replace element can also
-    be a string or an xml etree element.
+    account blocks of <bs> elements at a time. The replace element can only
+    be a string currently. (There is some bug with element replacing)
 
     What it does:
     It searches the entire document body for text blocks.
@@ -2740,12 +3031,8 @@ def advReplace(document, search, replace, bs=3):
                     # Is searchels is too long, remove first elements
                     searchels.pop(0)
 
-                # Search all combinations, of searchels, starting from
-                # smaller up to bigger ones
-                # l = search lenght
-                # s = search start
-                # e = element IDs to merge
                 found = False
+<<<<<<< HEAD
                 for l in range(1, len(searchels) + 1):
                     if found:
                         break
@@ -2810,6 +3097,142 @@ def advReplace(document, search, replace, bs=3):
                                     else:
                                         # Clears the other text elements
                                         searchels[i].text = ''
+=======
+                txtsearch = ''
+                for el in searchels:
+                    txtsearch += el.text
+
+                # Searcs for the text in the whole txtsearch
+                match = searchre.search(txtsearch)
+                if match:
+                    # I've found something :)
+                    # The end of match must be in the last element
+                    # |----|---s|omet|hing|!---|
+                    # Now we need to find the element containing the start of the match
+                    # Search all combinations, of searchels, starting from
+                    # smaller up to bigger ones
+                    # s = search start
+                    # e = element IDs to merge
+                    els_len = len(searchels)
+                    for s in reversed(range(els_len)):
+                        txtsearch = ''
+                        e = range(s,els_len)
+                        for k in e:
+                            txtsearch += searchels[k].text
+                        match = searchre.search(txtsearch)
+                        if match:
+                            found = True
+                            break
+                    # Now we have found the start and ending element of the match
+                    # |  0 |  1 |  2 |  3 |  4 |
+                    # |----|---s|omet|hing|!---|
+                    # e = [1,2,3,4]
+                    if DEBUG:
+                        log.debug("Found element!")
+                        log.debug("Search regexp: %s", searchre.pattern)
+                        log.debug("Requested replacement: %s", replace)
+                        log.debug("Matched text: %s", txtsearch)
+                        log.debug( "Matched text (splitted): %s", map(lambda i:i.text,searchels))
+                        log.debug("Matched at position: %s", match.start())
+                        log.debug( "matched in elements: %s", e)
+                        if isinstance(replace, etree._Element):
+                            log.debug("Will replace with XML CODE")
+                        elif isinstance(replace (list, tuple)):
+                            log.debug("Will replace with LIST OF ELEMENTS")
+                        else:
+                            log.debug("Will replace with:", re.sub(search,replace,txtsearch))
+
+                    try:
+                        # for text, we want to replace at <w:r> level
+                        # because there will be new lines
+                        # <w:p>
+                        #     <w:pPr></w:pPr>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[PREFIX]</w:t>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[REPLACE_LINE_1]</w:t>
+                        #         <w:br/>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[REPLACE_LINE_2]</w:t>
+                        #     </w:r>
+                        #     <w:r>
+                        #         <w:rPr></w:rPr>
+                        #         <w:t>[SUFIX]</w:t>
+                        #     </w:r>
+                        # </w:p>
+                        txt_prefix = txtsearch[:match.start()]
+                        txt_sufix = txtsearch[match.end():]
+                        if not isinstance(replace, (list, tuple)):
+                            replace = [replace]
+                        # get the first matching <w:r> element and copy it
+                        # because we want to keep its property <w:rPr> for the replaced content
+                        org_first_r = findTypeParent(searchels[e[0]], '{%s}r' % nsprefixes['w'])
+                        first_r = deepcopy(org_first_r)
+                        # and remove <w:br> if there is any
+                        # because these <w:br>s will be added accordingly later
+                        el_to_delete = first_r.find('{%s}br' % nsprefixes['w'])
+                        if not el_to_delete == None:
+                            first_r.remove(el_to_delete)
+                        template_r = deepcopy(first_r)
+                        # empty the text
+                        el_to_delete = template_r.find('{%s}t' % nsprefixes['w'])
+                        if not el_to_delete == None:
+                            template_r.remove(el_to_delete)
+                        p =  org_first_r.getparent()
+                        insindex = p.index(org_first_r)
+
+                        # insert the prefix
+                        p.insert(insindex, first_r)
+                        insindex += 1
+                        first_r.find('{%s}t' % nsprefixes['w']).text = txt_prefix
+                        # insert the runs to replace
+                        for r in replace:
+                            if isinstance(r, etree._Element):
+                                # TODO: there was some bug in element replacement
+                                # delete the function currently
+                                # but replacing some text with some picture is really useful
+                                # will add element replacing later
+                                continue
+                            lines = r.split('\n')
+                            for line in lines[:-1]:
+                                new_r = deepcopy(template_r)
+                                new_r.append(makeelement('t',tagtext=line))
+                                new_r.append(makeelement('br'))
+                                p.insert(insindex, new_r)
+                                insindex += 1
+                            # the last line of the segment
+                            new_r = deepcopy(template_r)
+                            new_r.append(makeelement('t',tagtext=lines[-1]))
+                            p.insert(insindex, new_r)
+                            insindex += 1
+                        # copy the last matching <w:r> element
+                        # because it may be the same as the first <w:r> element
+                        last_r = deepcopy(findTypeParent(searchels[e[-1]], '{%s}r' % nsprefixes['w']))
+                        p.insert(insindex, last_r)
+                        insindex += 1
+                        last_r.find('{%s}t' % nsprefixes['w']).text = txt_sufix
+
+                        # there may be 1 matching element, or multiple elements combined
+                        # anyway, remove them all since we have safely copied the prefix
+                        # and sufix and inserted replace in between
+                        for i in e:
+                            # maybe the element cannot be removed
+                            # so, anyway, empty them first in case I cannot remove them
+                            searchels[i].text = ''
+                            try:
+                                p.remove(findTypeParent(searchels[i], '{%s}r' % nsprefixes['w']))
+                            except Exception, e:
+                                log.exception(e)
+
+                        return newdocument
+                    except Extension, e:
+                        log.exception(e)
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     return newdocument
 
 
@@ -2954,7 +3377,6 @@ def appproperties():
         appprops.append(makeelement(prop, tagtext=props[prop], nsprefix=None))
     return appprops
 
-
 def websettings():
     '''Generate websettings'''
     web = makeelement('webSettings')
@@ -2962,6 +3384,7 @@ def websettings():
     web.append(makeelement('doNotSaveAsSingleFile'))
     return web
 
+<<<<<<< HEAD
 
 def relationshiplist():
     relationshiplist = [
@@ -2980,6 +3403,19 @@ def wordrelationships(relationshiplist):
     # Default list of relationships
     # FIXME: using string hack instead of making element
     #relationships = makeelement('Relationships',nsprefix='pr')
+=======
+def getDefaultRelationships():
+    '''Generate a default Word relationships file'''
+    # Default list of relationships
+    relationshiplist = [
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
+        ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
+    ]
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     relationships = etree.fromstring(
     '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         </Relationships>'''
@@ -2992,11 +3428,33 @@ def wordrelationships(relationshiplist):
         count += 1
     return relationships
 
+<<<<<<< HEAD
 
 def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output):
+=======
+def getRelationships(file=None):
+    '''Get a Word relationships file from a given Word document'''
+    if file and os.path.isfile(file):
+        mydoc = zipfile.ZipFile(file)
+        xmlcontent = mydoc.read('word/_rels/document.xml.rels')
+        relationships = etree.fromstring(xmlcontent)
+        return relationships
+    else:
+        return getDefaultRelationships()
+
+def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output,
+             template_dir=None):
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
     '''Save a modified document'''
+    if not template_dir:
+        template_dir = TEMP_TEMPLATE_DIR
     assert os.path.isdir(template_dir)
+<<<<<<< HEAD
     docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
+=======
+
+    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
 
     # Move to the template data path
     prev_dir = os.path.abspath('.')  # save previous working dir
@@ -3034,6 +3492,7 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelat
     docxfile.close()
     os.chdir(prev_dir)  # restore previous working dir
     return
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 >>>>>>> 1b2b5a8133f1f2c97204075163646922be715998
@@ -3926,3 +4385,5 @@ def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationsh
 
 
 >>>>>>> a541afd2754d71af53bf7e23f34254ce9890305f
+=======
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15

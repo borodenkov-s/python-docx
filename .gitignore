@@ -5,6 +5,7 @@
 !example-template.docx
 *.kpf
 build
+<<<<<<< HEAD
 problems
 template/word/media
 bin/activate
@@ -252,3 +253,9 @@ docx.egg-info/
 
 dist/
 >>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
+=======
+
+*~
+\#*\#
+.\#*
+>>>>>>> c2c09b66b47efe1922d5dd4f03e52eec0a06ad15
