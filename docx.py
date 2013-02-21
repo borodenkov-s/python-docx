@@ -79,7 +79,7 @@ nsprefixes = {
     'ct':'http://schemas.openxmlformats.org/package/2006/content-types',
     # Package Relationships (we're just making up our own namespaces here to save time)
     'pr':'http://schemas.openxmlformats.org/package/2006/relationships'
-    }
+}
 
 def opendocx(file):
     '''Open a docx file, return a document XML tree'''
@@ -107,7 +107,10 @@ def makeelement(tagname,tagtext=None,nsprefix='w',attributes=None,attrnsprefix=N
     else:
         # For when namespace = None
         namespace = ''
-    newelement = etree.Element(namespace+tagname, nsmap=namespacemap)
+    if nsprefix:
+        newelement = etree.Element(namespace+tagname, nsmap={nsprefix: nsprefixes[nsprefix]})#namespacemap)
+    else:
+        newelement = etree.Element(namespace+tagname, nsmap=namespacemap)
     # Add attributes with namespaces
     if attributes:
         # If they haven't bothered setting attribute namespace, use an empty string
@@ -153,7 +156,7 @@ def pagebreak(type='page', orient='portrait'):
         pagebreak.append(pPr)
     return pagebreak
 
-def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
     '''Make a new paragraph element, containing a run, and some text.
     Return the paragraph element.
 
@@ -709,6 +712,7 @@ def findTypeParent(element, tag):
             <span class="mini-icon mini-icon-remove-close js-menu-close"></span>
           </div> <!-- /.select-menu-header -->
 
+<<<<<<< HEAD
           <div class="select-menu-filters">
             <div class="select-menu-text-filter">
               <input type="text" id="commitish-filter-field" class="js-select-menu-text-filter js-filterable-field js-navigation-enable" placeholder="Filter branches/tags">
@@ -2364,3 +2368,164 @@ def findTypeParent(element, tag):
   </body>
 </html>
 
+=======
+def getdocumenttext(document):
+    '''Return the raw text of a document, as a list of paragraphs.'''
+    paratextlist=[]
+    # Compile a list of all paragraph (p) elements
+    paralist = []
+    for element in document.iter():
+        # Find p (paragraph) elements
+        if element.tag == '{'+nsprefixes['w']+'}p':
+            paralist.append(element)
+    # Since a single sentence might be spread over multiple text elements, iterate through each
+    # paragraph, appending all text (t) children to that paragraphs text.
+    for para in paralist:
+        paratext=u''
+        # Loop through each paragraph
+        for element in para.iter():
+            # Find t (text) elements
+            if element.tag == '{'+nsprefixes['w']+'}t':
+                if element.text:
+                    paratext = paratext+element.text
+        # Add our completed paragraph text to the list of paragraph text
+        if not len(paratext) == 0:
+            paratextlist.append(paratext)
+    return paratextlist
+
+def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
+    '''Create core properties (common document properties referred to in the 'Dublin Core' specification).
+    See appproperties() for other stuff.'''
+
+    '''
+    Default parameters
+    <dc:creator>Константин</dc:creator>
+    <cp:lastModifiedBy>Максим</cp:lastModifiedBy>
+    <cp:revision>2</cp:revision>
+    '''
+
+    coreprops = makeelement('coreProperties', nsprefix='cp')
+    coreprops.append(makeelement('title', tagtext=title, nsprefix='dc'))
+    coreprops.append(makeelement('subject',tagtext=subject,nsprefix='dc'))
+    coreprops.append(makeelement('creator',tagtext=creator, nsprefix='dc'))
+    coreprops.append(makeelement('keywords',tagtext=','.join(keywords),nsprefix='cp'))
+    if not lastmodifiedby:
+        lastmodifiedby = creator
+    coreprops.append(makeelement('lastModifiedBy',tagtext=lastmodifiedby,nsprefix='cp'))
+    coreprops.append(makeelement('revision', tagtext='1', nsprefix='cp'))
+    coreprops.append(makeelement('category', tagtext='Commercial offer', nsprefix='cp'))
+    coreprops.append(makeelement('description', tagtext='Commercial offer', nsprefix='dc'))
+    currenttime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Document creation and modify times
+    # Prob here: we have an attribute who name uses one namespace, and that
+    # attribute's value uses another namespace.
+    # We're creating the lement from a string as a workaround...
+    t = '''<dcterms:%s xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">%s</dcterms:%s>'''
+    for doctime in ['created','modified']:
+        coreprops.append(etree.fromstring(t % (doctime, currenttime, doctime)))
+
+    return coreprops
+
+def appproperties():
+    '''Create app-specific properties. See docproperties() for more common document properties.'''
+    appprops = makeelement('Properties',nsprefix='ep')
+    appprops = etree.fromstring(
+    '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
+    props = {
+            'Template':'Normal.dotm',
+            'TotalTime':'8',
+            'Pages':'1',
+            'Words':'83',
+            'Characters':'475',
+            'Application': 'Microsoft Office Word', #'Microsoft Word 12.0.0',
+            'DocSecurity':'0',
+            'Lines':'12',
+            'Paragraphs':'8',
+            'ScaleCrop':'false',
+            'LinksUpToDate':'false',
+            'CharactersWithSpaces':'583',
+            'SharedDoc':'false',
+            'HyperlinksChanged':'false',
+            'AppVersion':'12.0000',
+            'Company': 'element.ru'
+            }
+    for prop in props:
+        appprops.append(makeelement(prop,tagtext=props[prop],nsprefix=None))
+    return appprops
+
+
+def websettings():
+    '''Generate websettings'''
+    web = makeelement('webSettings')
+    web.append(makeelement('allowPNG'))
+    web.append(makeelement('doNotSaveAsSingleFile'))
+    return web
+
+def relationshiplist():
+    relationshiplist = [
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering','numbering.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles','styles.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings','settings.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings','webSettings.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable','fontTable.xml'],
+    ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme','theme/theme1.xml'],
+    ]
+    return relationshiplist
+
+def wordrelationships(relationshiplist):
+    '''Generate a Word relationships file'''
+    # Default list of relationships
+    # FIXME: using string hack instead of making element
+    #relationships = makeelement('Relationships',nsprefix='pr')
+    relationships = etree.fromstring(
+    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        </Relationships>'''
+    )
+    count = 0
+    for relationship in relationshiplist:
+        # Relationship IDs (rId) start at 1.
+        relationships.append(makeelement('Relationship',attributes={'Id':'rId'+str(count+1),
+        'Type':relationship[0],'Target':relationship[1]},nsprefix=None))
+        count += 1
+    return relationships
+
+def savedocx(document,coreprops,appprops,contenttypes,websettings,wordrelationships,output):
+    '''Save a modified document'''
+    assert os.path.isdir(template_dir)
+    docxfile = zipfile.ZipFile(output,mode='w',compression=zipfile.ZIP_DEFLATED)
+
+    # Move to the template data path
+    prev_dir = os.path.abspath('.') # save previous working dir
+    os.chdir(template_dir)
+
+    # Serialize our trees into out zip file
+    treesandfiles = {document:'word/document.xml',
+                     coreprops:'docProps/core.xml',
+                     appprops:'docProps/app.xml',
+                     contenttypes:'[Content_Types].xml',
+                     websettings:'word/webSettings.xml',
+                     wordrelationships:'word/_rels/document.xml.rels'}
+    for tree in treesandfiles:
+        log.info('Saving: '+treesandfiles[tree]    )
+        treestring = etree.tostring(tree, pretty_print=False,
+                xml_declaration=True, encoding='utf-8', standalone=True)
+        docxfile.writestr(treesandfiles[tree], treestring)
+
+    # Add & compress support files
+    files_to_ignore = ['.DS_Store'] # nuisance from some os's
+    for dirpath,dirnames,filenames in os.walk('.'):
+        for filename in filenames:
+            if filename in files_to_ignore:
+                continue
+            templatefile = join(dirpath,filename)
+            archivename = templatefile[2:]
+            log.info('Saving: %s', archivename)
+            docxfile.write(templatefile, archivename)
+    log.info('Saved new file to: %r', output)
+    docxfile.close()
+    os.chdir(prev_dir) # restore previous working dir
+    return
+
+>>>>>>> 1b2b5a8133f1f2c97204075163646922be715998
