@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 from lxml import etree
 from docx import NSPREFIXES
 
@@ -37,16 +35,12 @@ def make_element(tagname, tagtext=None, nsprefix='w', attributes=None, attrnspre
     if tagtext:
         newelement.text = tagtext    
     return newelement
-=======
-=======
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
+
 # -*- coding: utf-8 -*-
 import os
 from os.path import join, abspath
 from zipfile import ZipFile, ZIP_DEFLATED
 
-
-<<<<<<< HEAD
 def findTypeParent(element, tag):
         """ Finds fist parent of element of the given type
         
@@ -87,8 +81,7 @@ def dir_to_docx(source_dir, output_loc):
     docxfile.close()
     
     os.chdir(prev_dir) # restore previous working dir
->>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
-=======
+
 def cm2dxa(cm):
     """ convetion function to make things easy """
     # "word processes files at 72dpi"
@@ -147,4 +140,4 @@ def new_id(relationshiplist):
     except:
         nextid = 1
     return 'rId' + str(nextid)
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
+
