@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/usr/bin/env python2.6
 # -*- coding: utf-8 -*-
 '''
@@ -190,3 +191,13 @@ def advReplace(document,search,replace,bs=3):
                                         # Clears the other text elements
                                         searchels[i].text = ''
     return newdocument
+=======
+# encoding: utf-8
+
+VERSION = (0, 2, 0)
+
+from document import *
+from elements import *
+from namespaces import *
+from properties import *
+>>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
