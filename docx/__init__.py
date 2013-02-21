@@ -1,5 +1,8 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 #!/usr/bin/env python2.6
+=======
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
 # -*- coding: utf-8 -*-
 '''
 Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
@@ -8,6 +11,7 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 
+<<<<<<< HEAD
 from lxml import etree
 try:
     from PIL import Image
@@ -201,3 +205,7 @@ from elements import *
 from namespaces import *
 from properties import *
 >>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
+=======
+from core import Docx
+from elements import *
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f

@@ -26,7 +26,7 @@ Features for making documents include:
 - Multiple levels of headings
 - Tables
 - Section and page breaks
-- Images
+- Images (temporarily removed)
 
 <div style="float: right"><img src="http://github.com/mikemaccana/python-docx/raw/master/screenshot.png"></div>
 

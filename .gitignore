@@ -19,6 +19,7 @@ bin/pilfont.py
 bin/pilprint.py
 bin/pip
 bin/postactivate
+<<<<<<< HEAD
 bin/postdeactivate
 bin/preactivate
 bin/predeactivate
@@ -238,3 +239,16 @@ lib/python2.6/types.py
 lib/python2.6/types.pyo
 lib/python2.6/warnings.py
 lib/python2.6/warnings.pyo
+=======
+bin/
+include/
+lib/
+.DS_Store
+.project
+.settings/
+.pydevproject
+*/pip-log.txt
+docx.egg-info/
+
+dist/
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f

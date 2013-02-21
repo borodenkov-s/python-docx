@@ -11,14 +11,14 @@ from docx import *
 import sys
 if __name__ == '__main__':        
     try:
-        document = opendocx(sys.argv[1])
+        document = Docx(sys.argv[1])
         newfile = open(sys.argv[2],'w')        
     except:
         print('Please supply an input and output file. For example:')    
         print('''  example-extracttext.py 'My Office 2007 document.docx' 'outputfile.txt' ''')    
         exit()
     ## Fetch all the text out of the document we just created        
-    paratextlist = getdocumenttext(document)    
+    paratextlist = document.text    
 
     # Make explicit unicode version    
     newparatextlist = []

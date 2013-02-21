@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import os
 
 from PIL import Image
@@ -8,11 +9,63 @@ from utils import make_element
 
 
 def pagebreak(type='page', orient='portrait'):
+=======
+# -*- coding: utf-8 -*-
+import os
+from os.path import join
+import shutil
+
+from lxml import etree
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+    
+from metadata import TEMPLATE_DIR, nsprefixes
+
+def Element(tagname, tagtext=None, nsprefix='w', attributes=None,attrnsprefix=None):
+    '''Create an element & return it'''
+    # Deal with list of nsprefix by making namespacemap
+    namespacemap = None
+    if isinstance(nsprefix, list):
+        namespacemap = {}
+        for prefix in nsprefix:
+            namespacemap[prefix] = nsprefixes[prefix]
+        nsprefix = nsprefix[0] # FIXME: rest of code below expects a single prefix
+    if nsprefix:
+        namespace = '{'+nsprefixes[nsprefix]+'}'
+    else:
+        # For when namespace = None
+        namespace = ''
+    newelement = etree.Element(namespace+tagname, nsmap=namespacemap)
+    # Add attributes with namespaces
+    if attributes:
+        # If they haven't bothered setting attribute namespace, use an empty string
+        # (equivalent of no namespace)
+        if not attrnsprefix:
+            # Quick hack: it seems every element that has a 'w' nsprefix for its tag uses the same prefix for it's attributes
+            if nsprefix == 'w':
+                attributenamespace = namespace
+            else:
+                attributenamespace = ''
+        else:
+            attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
+
+        for tagattribute in attributes:
+            newelement.set(attributenamespace+tagattribute, attributes[tagattribute])
+    if tagtext:
+        newelement.text = tagtext
+    return newelement
+
+
+def pagebreak(breaktype='page', orient='portrait'):
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
     '''Insert a break, default 'page'.
     See http://openxmldeveloper.org/forums/thread/4075.aspx
     Return our page break element.'''
     # Need to enumerate different types of page breaks.
     validtypes = ['page', 'section']
+<<<<<<< HEAD
     if type not in validtypes:
         raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (type, validtypes))
     pagebreak = make_element('p')
@@ -28,20 +81,45 @@ def pagebreak(type='page', orient='portrait'):
             pgSz = make_element('pgSz',attributes={'w':'12240','h':'15840'})
         elif orient == 'landscape':
             pgSz = make_element('pgSz',attributes={'h':'12240','w':'15840', 'orient':'landscape'})
+=======
+    if breaktype not in validtypes:
+        raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (breaktype, validtypes))
+    pagebreak = Element('p')
+    if breaktype == 'page':
+        run = Element('r')
+        br = Element('br',attributes={'type':breaktype})
+        run.append(br)
+        pagebreak.append(run)
+    elif breaktype == 'section':
+        pPr = Element('pPr')
+        sectPr = Element('sectPr')
+        if orient == 'portrait':
+            pgSz = Element('pgSz',attributes={'w':'12240','h':'15840'})
+        elif orient == 'landscape':
+            pgSz = Element('pgSz',attributes={'h':'12240','w':'15840', 'orient':'landscape'})
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
         sectPr.append(pgSz)
         pPr.append(sectPr)
         pagebreak.append(pPr)
     return pagebreak
 
+<<<<<<< HEAD
 
 def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
     '''Make a new paragraph element, containing a run, and some text. 
     Return the paragraph element.
     
+=======
+def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
+    '''Make a new paragraph element, containing a run, and some text.
+    Return the paragraph element.
+
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
     @param string jc: Paragraph alignment, possible values:
                       left, center, right, both (justified), ...
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
+<<<<<<< HEAD
     
     If paratext is a list, spawn multiple run/text elements.
     Support text styles (paratext must then be a list of lists in the form
@@ -87,19 +165,73 @@ def paragraph(paratext,style='BodyText',breakbefore=False,jc='left'):
             rPr.append(u)
         if t[1].find('i') > -1:
             i = make_element('i')
+=======
+
+    If paratext is a list, spawn multiple run/text elements.
+    Support text styles (paratext must then be a list of lists in the form
+    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+
+    example
+    paratext = [
+        ('some bold text', 'b'),
+        ('some normal text', ''),
+        ('some italic underlined text', 'iu'),
+    ]
+
+    '''
+    # Make our elements
+    paragraph = Element('p')
+
+    if isinstance(paratext, list):
+        text = []
+        for pt in paratext:
+            if isinstance(pt, (list,tuple)):
+                text.append([Element('t',tagtext=pt[0]), pt[1]])
+            else:
+                text.append([Element('t',tagtext=pt), ''])
+    else:
+        text = [[Element('t',tagtext=paratext),''],]
+    pPr = Element('pPr')
+    pStyle = Element('pStyle',attributes={'val':style})
+    pJc = Element('jc',attributes={'val':jc})
+    pPr.append(pStyle)
+    pPr.append(pJc)
+
+    # Add the text the run, and the run to the paragraph
+    paragraph.append(pPr)
+    for t in text:
+        run = Element('r')
+        rPr = Element('rPr')
+        # Apply styles
+        if t[1].find('b') > -1:
+            b = Element('b')
+            rPr.append(b)
+        if t[1].find('u') > -1:
+            u = Element('u',attributes={'val':'single'})
+            rPr.append(u)
+        if t[1].find('i') > -1:
+            i = Element('i')
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
             rPr.append(i)
         run.append(rPr)
         # Insert lastRenderedPageBreak for assistive technologies like
         # document narrators to know when a page break occurred.
         if breakbefore:
+<<<<<<< HEAD
             lastRenderedPageBreak = make_element('lastRenderedPageBreak')
+=======
+            lastRenderedPageBreak = Element('lastRenderedPageBreak')
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
             run.append(lastRenderedPageBreak)
         run.append(t[0])
         paragraph.append(run)
     # Return the combined paragraph
     return paragraph
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
 def heading(headingtext,headinglevel,lang='en'):
     '''Make a new heading, return the heading element'''
     lmap = {
@@ -107,6 +239,7 @@ def heading(headingtext,headinglevel,lang='en'):
         'it': 'Titolo',
     }
     # Make our elements
+<<<<<<< HEAD
     paragraph = make_element('p')
     pr = make_element('pPr')
     pStyle = make_element('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})    
@@ -288,6 +421,24 @@ def Table(Element):
         '''Get a list of lists, return a table
 >>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
     
+=======
+    paragraph = Element('p')
+    pr = Element('pPr')
+    pStyle = Element('pStyle',attributes={'val':lmap[lang]+str(headinglevel)})
+    run = Element('r')
+    text = Element('t',tagtext=headingtext)
+    # Add the text the run, and the run to the paragraph
+    pr.append(pStyle)
+    run.append(text)
+    paragraph.append(pr)
+    paragraph.append(run)
+    # Return the combined paragraph
+    return paragraph
+
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+    '''Get a list of lists, return a table
+
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
         @param list contents: A list of lists describing contents
                               Every item in the list can be a string or a valid
                               XML element itself. It can also be a list. In that case
@@ -315,6 +466,7 @@ def Table(Element):
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
                               'align': specify the alignment, see paragraph documentation,
+<<<<<<< HEAD
         
         @return lxml.etree: Generated XML etree element
 <<<<<<< HEAD
@@ -329,12 +481,28 @@ def Table(Element):
     tableprops.append(tablewidth)
     if len(borders.keys()):
         tableborders = make_element('tblBorders')
+=======
+
+        @return lxml.etree: Generated XML etree element
+    '''
+    table = Element('tbl')
+    columns = len(contents[0])
+    # Table properties
+    tableprops = Element('tblPr')
+    tablestyle = Element('tblStyle',attributes={'val':'ColorfulGrid-Accent1'})
+    tableprops.append(tablestyle)
+    tablewidth = Element('tblW',attributes={'w':str(tblw),'type':str(twunit)})
+    tableprops.append(tablewidth)
+    if len(borders.keys()):
+        tableborders = Element('tblBorders')
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
         for b in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
             if b in borders.keys() or 'all' in borders.keys():
                 k = 'all' if 'all' in borders.keys() else b
                 attrs = {}
                 for a in borders[k].keys():
                     attrs[a] = unicode(borders[k][a])
+<<<<<<< HEAD
                 borderelem = make_element(b,attributes=attrs)
                 tableborders.append(borderelem)
         tableprops.append(tableborders)
@@ -350,18 +518,42 @@ def Table(Element):
     row = make_element('tr')
     rowprops = make_element('trPr')
     cnfStyle = make_element('cnfStyle',attributes={'val':'000000100000'})
+=======
+                borderelem = Element(b,attributes=attrs)
+                tableborders.append(borderelem)
+        tableprops.append(tableborders)
+    tablelook = Element('tblLook',attributes={'val':'0400'})
+    tableprops.append(tablelook)
+    table.append(tableprops)
+    # Table Grid
+    tablegrid = Element('tblGrid')
+    for i in range(columns):
+        tablegrid.append(Element('gridCol',attributes={'w':str(colw[i]) if colw else '2390'}))
+    table.append(tablegrid)
+    # Heading Row
+    row = Element('tr')
+    rowprops = Element('trPr')
+    cnfStyle = Element('cnfStyle',attributes={'val':'000000100000'})
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
     rowprops.append(cnfStyle)
     row.append(rowprops)
     if heading:
         i = 0
         for heading in contents[0]:
+<<<<<<< HEAD
             cell = make_element('tc')  
             # Cell properties  
             cellprops = make_element('tcPr')
+=======
+            cell = Element('tc')
+            # Cell properties
+            cellprops = Element('tcPr')
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
             if colw:
                 wattr = {'w':str(colw[i]),'type':cwunit}
             else:
                 wattr = {'w':'0','type':'auto'}
+<<<<<<< HEAD
             cellwidth = make_element('tcW',attributes=wattr)
             cellstyle = make_element('shd',attributes={'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'})
             cellprops.append(cellwidth)
@@ -369,6 +561,15 @@ def Table(Element):
             cell.append(cellprops)        
             # Paragraph (Content)
             if not type(heading) == list and not type(heading) == tuple:
+=======
+            cellwidth = Element('tcW',attributes=wattr)
+            cellstyle = Element('shd',attributes={'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'})
+            cellprops.append(cellwidth)
+            cellprops.append(cellstyle)
+            cell.append(cellprops)
+            # Paragraph (Content)
+            if not isinstance(heading, (list, tuple)):
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
                 heading = [heading,]
             for h in heading:
                 if isinstance(h, etree._Element):
@@ -377,6 +578,7 @@ def Table(Element):
                     cell.append(paragraph(h,jc='center'))
             row.append(cell)
             i += 1
+<<<<<<< HEAD
         table.append(row)          
     # Contents Rows
     for contentrow in contents[1 if heading else 0:]:
@@ -386,15 +588,34 @@ def Table(Element):
             cell = make_element('tc')
             # Properties
             cellprops = make_element('tcPr')
+=======
+        table.append(row)
+    # Contents Rows
+    for contentrow in contents[1 if heading else 0:]:
+        row = Element('tr')
+        i = 0
+        for content in contentrow:
+            cell = Element('tc')
+            # Properties
+            cellprops = Element('tcPr')
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
             if colw:
                 wattr = {'w':str(colw[i]),'type':cwunit}
             else:
                 wattr = {'w':'0','type':'auto'}
+<<<<<<< HEAD
             cellwidth = make_element('tcW',attributes=wattr)
             cellprops.append(cellwidth)
             cell.append(cellprops)
             # Paragraph (Content)
             if not type(content) == list and not type(content) == tuple:
+=======
+            cellwidth = Element('tcW',attributes=wattr)
+            cellprops.append(cellwidth)
+            cell.append(cellprops)
+            # Paragraph (Content)
+            if not isinstance(content, (list, tuple)):
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
                 content = [content,]
             for c in content:
                 if isinstance(c, etree._Element):
@@ -405,6 +626,7 @@ def Table(Element):
                     else:
                         align = 'left'
                     cell.append(paragraph(c,jc=align))
+<<<<<<< HEAD
             row.append(cell)    
             i += 1
         table.append(row)   
@@ -412,13 +634,30 @@ def Table(Element):
 
 
 def picture(document, picname, picdescription, pixelwidth=None,
+=======
+            row.append(cell)
+            i += 1
+        table.append(row)
+    return table
+
+def picture(relationshiplist, picname, picdescription, pixelwidth=None,
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
+<<<<<<< HEAD
     # pixel size of image. Return a paragraph containing the picture'''  
     document.word_relationships.to_copy.append([picname, os.path.abspath(picname)])
+=======
+    # pixel size of image. Return a paragraph containing the picture'''
+    # Copy the file into the media dir
+    media_dir = join(TEMPLATE_DIR,'word','media')
+    if not os.path.isdir(media_dir):
+        os.mkdir(media_dir)
+    shutil.copyfile(picname, join(media_dir,picname))
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -426,6 +665,7 @@ def picture(document, picname, picdescription, pixelwidth=None,
         pixelwidth,pixelheight = Image.open(picname).size[0:2]
 
     # OpenXML measures on-screen objects in English Metric Units
+<<<<<<< HEAD
     # 1cm = 36000 EMUs            
     emuperpixel = 12667
     width = str(pixelwidth * emuperpixel)
@@ -492,12 +732,80 @@ def picture(document, picname, picdescription, pixelwidth=None,
         attributes={'l':'25400','t':'0','r':'0','b':'0'})
     extent = make_element('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
     inline = make_element('inline',
+=======
+    # 1cm = 36000 EMUs
+    emuperpixel = 12667
+    width = str(pixelwidth * emuperpixel)
+    height = str(pixelheight * emuperpixel)
+
+    # Set relationship ID to the first available
+    picid = '2'
+    picrelid = 'rId'+str(len(relationshiplist)+1)
+    relationshiplist.append([
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        'media/'+picname])
+
+    # There are 3 main elements inside a picture
+    # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+    blipfill = Element('blipFill',nsprefix='pic')
+    blipfill.append(Element('blip',nsprefix='a',attrnsprefix='r',attributes={'embed':picrelid}))
+    stretch = Element('stretch',nsprefix='a')
+    stretch.append(Element('fillRect',nsprefix='a'))
+    blipfill.append(Element('srcRect',nsprefix='a'))
+    blipfill.append(stretch)
+
+    # 2. The non visual picture properties
+    nvpicpr = Element('nvPicPr',nsprefix='pic')
+    cnvpr = Element('cNvPr',nsprefix='pic',
+                        attributes={'id':'0','name':'Picture 1','descr':picname})
+    nvpicpr.append(cnvpr)
+    cnvpicpr = Element('cNvPicPr',nsprefix='pic')
+    cnvpicpr.append(Element('picLocks', nsprefix='a',
+                    attributes={'noChangeAspect':str(int(nochangeaspect)),
+                    'noChangeArrowheads':str(int(nochangearrowheads))}))
+    nvpicpr.append(cnvpicpr)
+
+    # 3. The Shape properties
+    sppr = Element('spPr',nsprefix='pic',attributes={'bwMode':'auto'})
+    xfrm = Element('xfrm',nsprefix='a')
+    xfrm.append(Element('off',nsprefix='a',attributes={'x':'0','y':'0'}))
+    xfrm.append(Element('ext',nsprefix='a',attributes={'cx':width,'cy':height}))
+    prstgeom = Element('prstGeom',nsprefix='a',attributes={'prst':'rect'})
+    prstgeom.append(Element('avLst',nsprefix='a'))
+    sppr.append(xfrm)
+    sppr.append(prstgeom)
+
+    # Add our 3 parts to the picture element
+    pic = Element('pic',nsprefix='pic')
+    pic.append(nvpicpr)
+    pic.append(blipfill)
+    pic.append(sppr)
+
+    # Now make the supporting elements
+    # The following sequence is just: make element, then add its children
+    graphicdata = Element('graphicData',nsprefix='a',
+        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
+    graphicdata.append(pic)
+    graphic = Element('graphic',nsprefix='a')
+    graphic.append(graphicdata)
+
+    framelocks = Element('graphicFrameLocks',nsprefix='a',attributes={'noChangeAspect':'1'})
+    framepr = Element('cNvGraphicFramePr',nsprefix='wp')
+    framepr.append(framelocks)
+    docpr = Element('docPr',nsprefix='wp',
+        attributes={'id':picid,'name':'Picture 1','descr':picdescription})
+    effectextent = Element('effectExtent',nsprefix='wp',
+        attributes={'l':'25400','t':'0','r':'0','b':'0'})
+    extent = Element('extent',nsprefix='wp',attributes={'cx':width,'cy':height})
+    inline = Element('inline',
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
         attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"},nsprefix='wp')
     inline.append(extent)
     inline.append(effectextent)
     inline.append(docpr)
     inline.append(framepr)
     inline.append(graphic)
+<<<<<<< HEAD
     drawing = make_element('drawing')
     drawing.append(inline)
     run = make_element('r')
@@ -706,3 +1014,13 @@ class Picture(Element):
     def with_relationships(self):
         return (self.relationship_list, paragraph)
 >>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
+=======
+    drawing = Element('drawing')
+    drawing.append(inline)
+    run = Element('r')
+    run.append(drawing)
+    paragraph = Element('p')
+    paragraph.append(run)
+    return relationshiplist,paragraph
+
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f

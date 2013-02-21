@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+from setuptools import setup
 
+<<<<<<< HEAD
 from setuptools import setup
 from glob import glob
 
@@ -35,3 +37,21 @@ setup(name='docx',
           ],
       zip_safe=False,
       )
+=======
+setup(
+    name='docx',
+    version='0.1.3',
+    requires=(
+        'lxml', 
+        'python_dateutil',
+    ),
+    description='The docx module creates, reads and writes Microsoft Office Word 2007 docx files',
+    author='Mike MacCana',
+    author_email='python.docx@librelist.com',
+    url='http://github.com/jiaaro/python-docx',
+    packages=['docx'],
+    package_data={
+        'docx': ['docx/template/*']
+    },
+)
+>>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
