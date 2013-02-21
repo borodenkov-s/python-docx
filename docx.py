@@ -133,7 +133,11 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None, attrnspref
             else:
                 attributenamespace = ''
         else:
+<<<<<<< HEAD
             attributenamespace = '{' + nsprefixes[attrnsprefix] + '}'
+=======
+            attributenamespace = '{'+nsprefixes[attrnsprefix]+'}'
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
         for tagattribute in attributes:
             newelement.set(attributenamespace + tagattribute, attributes[tagattribute])
@@ -181,6 +185,7 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
                       see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
                       for a full list
 
+<<<<<<< HEAD
     If paratext is a dict, spawn multiple run/text elements.
 
     example
@@ -190,6 +195,19 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
         ('some bold text', {'bold': ''}),
         ('some normal text', None),
     ]
+=======
+    If paratext is a list, spawn multiple run/text elements.
+    Support text styles (paratext must then be a list of lists in the form
+    <text> / <style>. Stile is a string containing a combination od 'bui' chars
+
+    example
+    paratext =\
+        [ ('some bold text', 'b')
+        , ('some normal text', '')
+        , ('some italic underlined text', 'iu')
+        ]
+
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     '''
     # Make our elements
     paragraph = makeelement('p')
@@ -270,8 +288,20 @@ def contenttypes():
     for part in parts:
         types.append(makeelement('Override', nsprefix=None, attributes={'PartName': part, 'ContentType': parts[part]}))
     # Add support for filetypes
+<<<<<<< HEAD
     filetypes = {'rels': 'application/vnd.openxmlformats-package.relationships+xml', 'xml': 'application/xml',
                  'jpeg': 'image/jpeg', 'gif': 'image/gif', 'png': 'image/png'}
+=======
+    filetypes =\
+        { 'gif'  : 'image/gif'
+        , 'jpeg' : 'image/jpeg'
+        , 'jpg'  : 'image/jpeg'
+        , 'png'  : 'image/png'
+        , 'emf'  : 'image/x-emf'
+        , 'rels' : 'application/vnd.openxmlformats-package.relationships+xml'
+        , 'xml'  : 'application/xml'
+        }
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     for extension in filetypes:
         types.append(makeelement('Default', nsprefix=None, attributes={'Extension': extension,
                                                                        'ContentType': filetypes[extension]}))
@@ -332,6 +362,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                              val: The style of the border, see http://www.schemacentral.com/sc/ooxml/t-w_ST_Border.html
         @param list celstyle: Specify the style for each colum, list of dicts.
                               supported keys:
+<<<<<<< HEAD
                               'align': specify the alignment, see paragraph documentation,
         @param dict headstyle: Specify the style for headers. Default style is:
                                'val':'clear','color':'auto','fill':'548DD4',
@@ -339,6 +370,10 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                                Specify None for a key to remove it.
                                ( See BASE_HEADER_STYLE )
                                Any key can be overridden.
+=======
+                              'align': specify the alignment, see paragraph documentation.
+
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
         @return lxml.etree: Generated XML etree element
     '''
     BASE_HEADER_STYLE = {'val':'clear','color':'auto','fill':'548DD4','themeFill':'text2','themeFillTint':'99'}
@@ -452,18 +487,28 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
     return table
 
 
+<<<<<<< HEAD
 def picture(relationshiplist, picname, picdescription, pixelwidth=None,
             pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+=======
+def picture(relationshiplist, picname, picdescription, pixelwidth=None, pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     '''Take a relationshiplist, picture file name, and return a paragraph containing the image
     and an updated relationshiplist'''
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
     # pixel size of image. Return a paragraph containing the picture'''
     # Copy the file into the media dir
+
+    base_pic_name = os.path.basename(picname)
     media_dir = join(template_dir, 'word', 'media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
+<<<<<<< HEAD
     shutil.copyfile(picname, join(media_dir, picname))
+=======
+    shutil.copyfile(picname, join(media_dir, base_pic_name))
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
     # Check if the user has specified a size
     if not pixelwidth or not pixelheight:
@@ -481,7 +526,11 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     picrelid = 'rId' + str(len(relationshiplist) + 1)
     relationshiplist.append([
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+<<<<<<< HEAD
         'media/' + picname])
+=======
+        'media/' + base_pic_name])
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
     # There are 3 main elements inside a picture
     # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
@@ -495,7 +544,11 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,
     # 2. The non visual picture properties
     nvpicpr = makeelement('nvPicPr', nsprefix='pic')
     cnvpr = makeelement('cNvPr', nsprefix='pic',
+<<<<<<< HEAD
                         attributes={'id': '0', 'name': 'Picture 1', 'descr': picname})
+=======
+                        attributes={'id': '0', 'name': 'Picture 1', 'descr': base_pic_name})
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     nvpicpr.append(cnvpr)
     cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
     cnvpicpr.append(makeelement('picLocks', nsprefix='a',
@@ -598,6 +651,7 @@ def clean(document):
 def findTypeParent(element, tag):
     """ Finds fist parent of element of the given type
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> a8ff0e4a98514d856b631d939f84a574f0e9e447
     
     
@@ -611,6 +665,8 @@ def findTypeParent(element, tag):
     
 
 =======
+=======
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
     @param object element: etree element
     @param string the tag parent to search for
@@ -630,6 +686,7 @@ def findTypeParent(element, tag):
 
 def AdvSearch(document, search, bs=3):
     '''Return set of all regex matches
+<<<<<<< HEAD
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
 
       <script src="https://a248.e.akamai.net/assets.github.com/assets/frameworks-f615f7544ba636b083d742a0b415479b5b674fd4.js" type="text/javascript"></script>
@@ -667,6 +724,47 @@ def AdvSearch(document, search, bs=3):
 <<<<<<< HEAD
       
 =======
+=======
+
+    This is an advanced version of python-docx.search() that takes into
+    account blocks of <bs> elements at a time.
+
+    What it does:
+    It searches the entire document body for text blocks.
+    Since the text to search could be spawned across multiple text blocks,
+    we need to adopt some sort of algorithm to handle this situation.
+    The smaller matching group of blocks (up to bs) is then adopted.
+    If the matching group has more than one block, blocks other than first
+    are cleared and all the replacement text is put on first block.
+
+    Examples:
+    original text blocks : [ 'Hel', 'lo,', ' world!' ]
+    search : 'Hello,'
+    output blocks : [ 'Hello,' ]
+
+    original text blocks : [ 'Hel', 'lo', ' __', 'name', '__!' ]
+    search : '(__[a-z]+__)'
+    output blocks : [ '__name__' ]
+
+    @param instance  document: The original document
+    @param str       search: The text to search for (regexp)
+                          append, or a list of etree elements
+    @param int       bs: See above
+
+    @return set      All occurences of search string
+
+    '''
+
+    # Compile the search regexp
+    searchre = re.compile(search)
+
+    matches = []
+
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     for element in document.iter():
         if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
             if element.text:
@@ -704,7 +802,12 @@ def AdvSearch(document, search, bs=3):
 
 
 def advReplace(document, search, replace, bs=3):
+<<<<<<< HEAD
     '''Replace all occurences of string with a different string, return updated document
+=======
+    """
+    Replace all occurences of string with a different string, return updated document
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
 
     This is a modified version of python-docx.replace() that takes into
     account blocks of <bs> elements at a time. The replace element can also
@@ -739,6 +842,7 @@ def advReplace(document, search, replace, bs=3):
     @param int       bs: See above
 
     @return instance The document with replacement applied
+<<<<<<< HEAD
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
 
 
@@ -2522,6 +2626,22 @@ def advReplace(document, search, replace, bs=3):
 
 =======
 =======
+=======
+
+    """
+    # Enables debug output
+    DEBUG = False
+
+    newdocument = document
+
+    # Compile the search regexp
+    searchre = re.compile(search)
+
+    # Will match against searchels. Searchels is a list that contains last
+    # n text elements found in the document. 1 < n < bs
+    searchels = []
+
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     for element in newdocument.iter():
         if element.tag == '{%s}t' % nsprefixes['w']:  # t (text) elements
             if element.text:
@@ -2691,8 +2811,17 @@ def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
 
 
 def appproperties():
+<<<<<<< HEAD
     '''Create app-specific properties. See docproperties() for more common document properties.'''
     #appprops = makeelement( 'Properties', nsprefix = 'ep' )
+=======
+    """
+    Create app-specific properties. See docproperties() for more common
+    document properties.
+
+    """
+    appprops = makeelement('Properties', nsprefix='ep')
+>>>>>>> 7bb35b0877215421b39515eba9d27f9829b6bc14
     appprops = etree.fromstring(
     '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
