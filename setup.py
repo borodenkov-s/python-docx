@@ -13,10 +13,14 @@ for scheme in INSTALL_SCHEMES.values():
 setup(name='docx',
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       version='0.0.2',
 =======
       version='0.2',
 >>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
+=======
+      version='0.0.3',
+>>>>>>> e38d8395280f6fcf03413fc754b73650aaf9c4ea
       requires=['lxml'],
 =======
       version='0.0.4',
