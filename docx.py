@@ -378,6 +378,9 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                               Every item in the list can be a string or a valid
                               XML element itself. It can also be a list. In that case
                               all the listed elements will be merged into the cell.
+                              If list's item is a tuple, it's first element is treated as
+                              cell's row span value. Second'll be treated as cell's column
+                              span.
         @param bool heading: Tells whether first line should be threated as heading
                              or not
         @param list colw: A list of interger. The list must have same element
@@ -457,6 +460,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
         for heading in contents[0]:
             cell = makeelement('tc')
             # Cell properties
+            row_span = 1
+            if isinstance(heading, tuple):
+                if len(heading) == 2:
+                    row_span = heading[0] if heading[0] > 1 else 0
+                    heading = heading[1]
+                elif len(heading) == 1:
+                    heading = heading[0]
+                else:
+                    raise ValueError('Invalid span value')
             cellprops = makeelement('tcPr')
             if colw:
                 wattr = {'w': str(colw[i]), 'type': cwunit}
@@ -479,6 +491,8 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                                                        'themeFill': 'text2', 'themeFillTint': '99'})
 >>>>>>> 521eccd1766262672d82224524e3cfb279bb9e4f
             cellprops.append(cellwidth)
+            if row_span > 1:
+                cellprops.append(makeelement('gridSpan',attributes={'val':str(row_span)}))
             cellprops.append(cellstyle)
             cell.append(cellprops)
             # Paragraph (Content)
@@ -493,10 +507,26 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
             i += 1
         table.append(row)
     # Contents Rows
-    for contentrow in contents[1 if heading else 0:]:
+    col_spans = {}
+    for n,contentrow in enumerate(contents[1 if heading else 0:]):
         row = makeelement('tr')
         i = 0
         for content in contentrow:
+            row_span = 1
+            if isinstance(content, tuple):
+                # content = [a if a > 1 else 0 for a in content]
+                if len(content) == 2:
+                    row_span = content[0] if content[0] > 1 else 0
+                    content = content[1]
+                if len(content) == 3:
+                    row_span = content[0] if content[0] > 1 else 0
+                    if col_spans.has_key(n):
+                        raise ValueError('Invalid span value')
+                    if content[1] > 1:
+                        col_spans[n] = [True, content[1]] # True for first merge
+                    content = content[2]
+                else:
+                    content = content[0]
             cell = makeelement('tc')
             # Properties
             cellprops = makeelement('tcPr')
@@ -506,6 +536,18 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
                 wattr = {'w': '0', 'type': 'auto'}
             cellwidth = makeelement('tcW', attributes=wattr)
             cellprops.append(cellwidth)
+            if row_span > 1:
+                cellspan = makeelement('gridSpan',attributes={'val':str(row_span)})
+                cellprops.append(cellspan)
+            if col_spans.has_key(n):
+                if col_spans[n][0]:
+                    cellprops.append(makeelement('vMerge',attributes={'val':'restart'}))
+                    col_spans[n][0] = False
+                else:
+                    cellprops.append(makeelement('vMerge'))
+                col_spans[n][1] -= 1
+                if (col_spans[n][1] < 1):
+                    col_spans.pop(n)
             cell.append(cellprops)
             # Paragraph (Content)
             if not isinstance(content, (list, tuple)):
