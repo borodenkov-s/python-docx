@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 #!/usr/bin/env python2.6
-=======
->>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
-=======
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
 # -*- coding: utf-8 -*-
 '''
 Open and modify Microsoft Word 2007 docx files (called 'OpenXML' and 'Office OpenXML' by Microsoft)
@@ -14,8 +7,6 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 '''
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 from lxml import etree
 try:
     from PIL import Image
@@ -199,21 +190,3 @@ def advReplace(document,search,replace,bs=3):
                                         # Clears the other text elements
                                         searchels[i].text = ''
     return newdocument
-=======
-# encoding: utf-8
-
-VERSION = (0, 2, 0)
-
-from document import *
-from elements import *
-from namespaces import *
-from properties import *
->>>>>>> b0abe8d0c2ba44c3dd6675c5eb3198925a84431e
-=======
-from core import Docx
-from elements import *
->>>>>>> 7093a83298ef89a905b9be84dac18bfbdeee394f
-=======
-from core import Docx
-from elements import *
->>>>>>> 5146df06ca63ecd197f762b25934423455e747a1
